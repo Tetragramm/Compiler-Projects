@@ -1,0 +1,4 @@
+program #@
+blah := foo + bar;
+whizz(bang, boom);
+end
