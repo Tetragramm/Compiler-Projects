@@ -1,4 +1,16 @@
-program #@
-blah := foo + bar;
-whizz(bang, boom);
-end
+program example(input, output);
+var x, y: integer;
+function gcd(a, b: integer): integer;
+begin {comment test}
+	if b = 0 then gcd := a
+	else gcd := gcd(b, a mod b)
+end;
+
+begin
+	read(x, y);
+	write(gcd(x, y))
+	write(1+4.5E+2)
+	write(2*5.0)
+	write(3/6.0E-2)
+	write(4-2)
+end.
