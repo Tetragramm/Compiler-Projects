@@ -8,9 +8,10 @@ end;
 
 begin
 	read(x, y);
-	write(gcd(x, y))
-	write(1+4.5E+2)
-	write(2*5.0)
-	write(3/6.0E-2)
-	write(4-2)
+	write(gcd(x, y));
+	write(1+4E+2);
+	write(2*5.3);
+	write(3/                                      600.1E-2);
+	write(4-		26297);
+        x := -4
 end.

@@ -1,0 +1,9 @@
+program
+end.
+begin
+end
+var
+if
+then
+else
+function

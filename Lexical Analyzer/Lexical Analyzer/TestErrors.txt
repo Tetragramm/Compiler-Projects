@@ -1,0 +1,16 @@
+program #@
+	testinglongiderror
+	0450
+	04.24
+	4.240
+	12345678901234567890
+	1234567.
+	1.2345678
+	1.2E12345
+	1.2E
+    1.2E0
+    1E+10
+    1E+
+    E1+
+	{Bad Comment 1573
+	Bad Symbol 2}
