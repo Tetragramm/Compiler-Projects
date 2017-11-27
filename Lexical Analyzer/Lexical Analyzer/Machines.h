@@ -31,6 +31,10 @@ public:
     }
 };
 
+#define EMPTY_TOKEN (TAPair())
+
+typedef std::pair<std::string, TAPair> LexicalToken;
+
 class Machine
 {
 public:
@@ -52,10 +56,10 @@ public:
 
     void setLine(const std::string& line);
 
-    std::pair< std::string, TAPair > getToken();
+    LexicalToken getToken();
 
 private:
-    void clearSpace();
+    TAPair clearSpace();
 };
 
 

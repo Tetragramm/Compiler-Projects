@@ -15,58 +15,59 @@ int main()
 {
     using namespace std;
     
-    vector<string> rWords;
-    ifstream rWordsFile("ReservedWords.txt");
-    while(!rWordsFile.eof())
+    vector<string> r_words;
+    ifstream r_words_file("ReservedWords.txt");
+    while(!r_words_file.eof())
     {
         string word;
-        getline(rWordsFile, word);
-        rWords.push_back( word );
+        getline(r_words_file, word);
+        r_words.push_back( word );
     }
-    rWordsFile.close();
+    r_words_file.close();
 
     SymbolTable symbol_table;
 
-    PascalMachine machine(rWords, symbol_table);
+    PascalMachine machine(r_words, symbol_table);
 
-    vector<string> fileNames{"TestPascal", "TestErrors"};
+    vector<string> file_names{"TestPascal", "TestErrors"};
 
-    for(string& file : fileNames)
+    for(string& file : file_names)
     {
-        ifstream inputFile(file+".txt");
-        ofstream listingFile(file+"Listing.txt");
-        ofstream tokenFile(file+"Tokens.txt");
-        tokenFile<<setw(10)<<"Line No."<<"  ";
-        tokenFile<<setw(10)<<"Lexeme"<<"  ";
-        tokenFile<<setw(14)<<"TOKEN_TYPE"<<"  ";
-        tokenFile<<setw(10)<<"ATTRIBUTE"<<"\n";
+        ifstream input_file(file+".txt");
+        ofstream listing_file(file+"Listing.txt");
+        ofstream token_file(file+"Tokens.txt");
+        token_file<<setw(10)<<"Line No."<<"  ";
+        token_file<<setw(10)<<"Lexeme"<<"  ";
+        token_file<<setw(14)<<"TOKEN_TYPE"<<"  ";
+        token_file<<setw(10)<<"ATTRIBUTE"<<"\n";
 
-        int lineNum = 1;
+        int line_num = 1;
         string line;
-        while(!inputFile.eof())
+        while(!input_file.eof())
         {
-            getline(inputFile, line);
+            getline(input_file, line);
 
             machine.setLine( line );
 
-            listingFile<<lineNum<<"\t"<<line<<"\n";
+            listing_file<<line_num<<"\t"<<line<<"\n";
 
-            pair<string, TAPair> tok;
+            LexicalToken tok;
             do
             {
                 tok = machine.getToken();
                 if(tok.second.token < NONE)
-                    listingFile<<GetString(tok.second.token)<<" "<<GetString(tok.second.attribute)<<" "<<tok.first<<"\n";
-                if(tok.second != TAPair())
+                    listing_file<<GetString(tok.second.token)<<" "<<GetString(tok.second.attribute)<<" "<<tok.first<<"\n";
+                
+                if(tok.second != EMPTY_TOKEN)
                 {
-                    tokenFile<<setw(10)<<lineNum<<"  ";
-                    tokenFile<<setw(10)<<tok.first<<"  ";
-                    tokenFile<<setw(14)<<GetString(tok.second.token)<<"  ";
-                    tokenFile<<setw(10)<<GetString(tok.second.attribute)<<"\n";
+                    token_file<<setw(10)<<line_num<<"  ";
+                    token_file<<setw(10)<<tok.first<<"  ";
+                    token_file<<setw(14)<<GetString(tok.second.token)<<"  ";
+                    token_file<<setw(10)<<GetString(tok.second.attribute)<<"\n";
                 }
-            } while( tok.second != TAPair());
+            } while( tok.second != EMPTY_TOKEN);
 
-            lineNum++;
+            line_num++;
         }
     }
 

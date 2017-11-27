@@ -36,7 +36,7 @@ public:
                 return TAPair(getTokenType(), NONE);
         }
         idx = start_idx;
-        return TAPair();
+        return EMPTY_TOKEN;
     }
     
     TOKEN_TYPE getTokenType() const override
@@ -72,7 +72,7 @@ public:
     {
         bool found_ws = false;
         int my_idx = idx;
-        while(TemplateMachine::runMachine( line, my_idx ) != TAPair())
+        while(TemplateMachine::runMachine( line, my_idx ) != EMPTY_TOKEN)
         {
             found_ws = true;
         }
@@ -116,7 +116,7 @@ public:
 class RelOpMachine : public TemplateMachine
 {
 public:
-    RelOpMachine() : TemplateMachine( vector< string >{ "=", "<", ">", ">=", "<=", "<>" } )
+    RelOpMachine() : TemplateMachine( vector< string >{ ">=", "<=", "<>",  "=", "<", ">" } )
     {}
     
     TOKEN_TYPE getTokenType() const override
@@ -154,7 +154,7 @@ public:
             }
             return UNCLOSED_COMMENT;
         }
-        return TAPair();
+        return EMPTY_TOKEN;
     }
     
     TOKEN_TYPE getTokenType() const override
@@ -191,7 +191,7 @@ public:
         if(idx < line.length() && line[idx] == '.')
         {
             idx = start_idx;
-            return TAPair();
+            return EMPTY_TOKEN;
         }
 
         if(digit_count > 10)
@@ -203,7 +203,7 @@ public:
             return TAPair(getTokenType(), NONE);
 
         idx = start_idx;
-        return TAPair();
+        return EMPTY_TOKEN;
     }
     
     TOKEN_TYPE getTokenType() const override
@@ -263,7 +263,7 @@ public:
                 }
             
                 //Trailing Zero check
-                if(digit_count > 0 && line[idx-1] == '0')
+                if(digit_count > 1 && line[idx-1] == '0')
                 {
                     trailingZero = true;
                 }
@@ -324,7 +324,7 @@ public:
         }
 
         idx = start_idx;
-        return TAPair();
+        return EMPTY_TOKEN;
     }
 
     TOKEN_TYPE getTokenType() const override
@@ -350,7 +350,7 @@ public:
             idx++;
             return TAPair(getTokenType(), NONE);
         default:
-            return TAPair();
+            return EMPTY_TOKEN;
         }
     }
 
@@ -388,7 +388,7 @@ public:
             return TAPair(getTokenType(), sTableIdx);
         }
         //Invalid ID
-        return TAPair();
+        return EMPTY_TOKEN;
     }
 
     TOKEN_TYPE getTokenType() const override
@@ -474,9 +474,14 @@ void PascalMachine::setLine(const string& line)
     _idx = 0;
 }
 
-pair< string, TAPair > PascalMachine::getToken()
+LexicalToken PascalMachine::getToken()
 {
-    clearSpace();
+    const int space_idx = _idx;
+    TAPair space = clearSpace();
+    if(space != EMPTY_TOKEN)
+    {
+        return LexicalToken(_line.substr(space_idx, _idx-space_idx), space);
+    }
         
     if(_idx != _line.length())
     {
@@ -484,16 +489,16 @@ pair< string, TAPair > PascalMachine::getToken()
         {
             const int start_idx = _idx;
             TAPair p = m->runMachine( _line, _idx );
-            if(p != TAPair())
+            if(p != EMPTY_TOKEN)
             {
-                return pair<string, TAPair>(_line.substr(start_idx, _idx-start_idx), p);
+                return LexicalToken(_line.substr(start_idx, _idx-start_idx), p);
             }
         }
     }
-    return pair<string, TAPair>("", TAPair());
+    return LexicalToken("", EMPTY_TOKEN);
 }
 
-void PascalMachine::clearSpace()
+TAPair PascalMachine::clearSpace()
 {
     int temp_idx;
     do
@@ -502,7 +507,11 @@ void PascalMachine::clearSpace()
         //Clear out comments and empty space
         for(const auto& m : _space_machines)
         {
-            m->runMachine( _line, _idx );
+            TAPair res = m->runMachine( _line, _idx );
+            if(res.token == LEXICAL_ERROR)
+                return res;
         }
     } while(temp_idx != _idx && _idx != _line.length());
+
+    return EMPTY_TOKEN;
 }
