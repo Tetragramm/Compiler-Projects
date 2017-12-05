@@ -49,7 +49,23 @@ class ReservedWordMachine : public TemplateMachine
 {
 public:
     ReservedWordMachine() {}
-    ReservedWordMachine(const vector< string >& reserved_words) : TemplateMachine( reserved_words ) {}
+    explicit ReservedWordMachine(const vector< string >& reserved_words) : TemplateMachine( reserved_words ) {}
+
+    TAPair runMachine(const std::string& line, int& idx) const override
+    {
+        const int start_idx = idx;
+        const TAPair temp = TemplateMachine::runMachine( line, idx );
+        if(idx == line.length() || !isalnum(line[idx]))
+        {
+            return temp;
+        }
+
+        if(temp != TAPair())
+        {
+            idx = start_idx;
+        }
+        return TAPair();
+    }
 
     void pushBack( const string& str )
     {
@@ -443,6 +459,22 @@ class TypeMachine : public TemplateMachine
 {
 public:
     TypeMachine() : TemplateMachine({"integer", "real"}) {}
+
+    TAPair runMachine(const std::string& line, int& idx) const override
+    {
+        const int start_idx = idx;
+        const TAPair temp = TemplateMachine::runMachine( line, idx );
+        if(idx == line.length() || !isalnum(line[idx]))
+        {
+            return temp;
+        }
+
+        if(temp != TAPair())
+        {
+            idx = start_idx;
+        }
+        return TAPair();
+    }
 
     TOKEN_TYPE getTokenType() const override
     {

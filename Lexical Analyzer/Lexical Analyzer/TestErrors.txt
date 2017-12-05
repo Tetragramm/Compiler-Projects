@@ -14,3 +14,5 @@ program
     E+ {ID, addop}
 	{unclosed Comment
 	Bad Symbol 2}
+    realt {should be ID realt not RESERVED_WORD real and ID t}
+    functional {same deal}
