@@ -1,18 +1,22 @@
 program example(input, output);
 var x:integer; var y: integer;
+
 function gcd(a:integer; b: integer): integer;
 begin {comment test}
+    $@
 	if b = 0 then gcd := a
-	else gcd := gcd(b, a mod b)
+	else gcd := gcd(b, a mob b)
 end;
+
 function testMath(a:real; b: real): real;
 var testArr : array[1 .. 10] of real;
 	function testMat2:integer;
-	begin
+	begin {unclosed comment
 		blah[1] := 10;
 		testMat2 := blah[1]
 	end;
-begin {comment test}
+    
+begin
 	while not b or a do
 	begin
 		b := a * 0.0E5;
@@ -21,7 +25,7 @@ begin {comment test}
 	end;
 	
 	if a = 0 then if b = 0 then a := 1 else b := 1;
-	if a = 1 then if b = 1 then a := 2 else b := 5 else a := 3;
+	if a := 1 then if b = 1 then a := 2 else b := 5 else a := 3;
 	if ((a = -1) and (b = +2)) then begin if b = 0 then a := 1 end else b := 1;
 	if a then begin end
 end;

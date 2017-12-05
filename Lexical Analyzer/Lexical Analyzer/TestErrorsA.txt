@@ -5,8 +5,8 @@ begin {comment test}
 	if b = 0 then gcd := a
 	else gcd := gcd(b, a mod b)
 end;
-function testMath(a:real; b: real): real;
-var testArr : array[1 .. 10] of real;
+function testMath(a:real; b: real): realt;
+var testArr : array[1 .. 10] or real;
 	function testMat2:integer;
 	begin
 		blah[1] := 10;
@@ -16,7 +16,7 @@ begin {comment test}
 	while not b or a do
 	begin
 		b := a * 0.0E5;
-		a := a + 1;
+		a := a  1;
 		testMath := a and b
 	end;
 	
@@ -25,7 +25,7 @@ begin {comment test}
 	if ((a = -1) and (b = +2)) then begin if b = 0 then a := 1 end else b := 1;
 	if a then begin end
 end;
-function test:integer;
+function test:integer
 begin
 	test:=100
 end;
