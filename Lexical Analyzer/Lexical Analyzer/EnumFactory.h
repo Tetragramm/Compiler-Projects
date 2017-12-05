@@ -25,14 +25,14 @@
   }; \
   \
   namespace NS_##EnumType##_NS {\
-  const std::string GetString(EnumType dummy); \
+  const std::string getString(EnumType dummy); \
   EnumType Get##EnumType##Value(const std::string& string); \
   };\
 
 /// define the access function names
 #define DEFINE_ENUM(EnumType,ENUM_DEF) \
   namespace NS_##EnumType##_NS {\
-  const std::string GetString(EnumType value) \
+  const std::string getString(EnumType value) \
   { \
     switch(value) \
     { \

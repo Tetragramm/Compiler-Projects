@@ -1,5 +1,4 @@
 program
-end.
 begin
 end
 var
@@ -7,3 +6,7 @@ if
 then
 else
 function
+while
+do
+array
+of

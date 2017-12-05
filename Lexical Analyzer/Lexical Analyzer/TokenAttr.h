@@ -19,12 +19,13 @@
     TOKEN_TYPE(SYMBOL, ) \
     TOKEN_TYPE(ID, ) \
     TOKEN_TYPE(TYPE, ) \
+    TOKEN_TYPE(END_OF_FILE, )\
 
 DECLARE_ENUM(TOKEN_TYPE,TT_ENUM)
 
-inline const std::string GetString(TOKEN_TYPE type)
+inline std::string getString( const TOKEN_TYPE type)
 {
-    return NS_TOKEN_TYPE_NS::GetString( type );
+    return NS_TOKEN_TYPE_NS::getString( type );
 }
 
 #define AT_ENUM(ATTRIBUTE_TYPE)\
@@ -43,12 +44,23 @@ inline const std::string GetString(TOKEN_TYPE type)
 
 DECLARE_ENUM(ATTRIBUTE_TYPE,AT_ENUM)
 
-inline const std::string GetString(ATTRIBUTE_TYPE attr)
+inline std::string getString( const ATTRIBUTE_TYPE attr)
 {
     if(attr >= 0)
         return "loc "+std::to_string( static_cast< int >(attr) );
-    return NS_ATTRIBUTE_TYPE_NS::GetString( attr );
+    return NS_ATTRIBUTE_TYPE_NS::getString( attr );
 }
 
+inline std::ostream& operator<<( std::ostream& os, const TOKEN_TYPE& t)
+{
+    os<<getString(t);
+    return os;
+}
+
+inline std::ostream& operator<<( std::ostream& os, const ATTRIBUTE_TYPE& a)
+{
+    os<<getString(a);
+    return os;
+}
 
 #endif

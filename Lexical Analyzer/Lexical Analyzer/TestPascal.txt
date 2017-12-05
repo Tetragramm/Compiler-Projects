@@ -1,32 +1,41 @@
 program example(input, output);
-var x, y: integer;
-function gcd(a, b: integer): integer;
+var x:integer; var y: integer;
+function gcd(a:integer; b: integer): integer;
 begin {comment test}
 	if b = 0 then gcd := a
 	else gcd := gcd(b, a mod b)
 end;
+function testMath(a:real; b: real): realt;
+var testArr : array[1 .. 10] or real;
+	function testMat2:integer;
+	begin
+		blah[1] := 10;
+		testMat2 := blah[1]
+	end;
+begin {comment test}
+	while not b or a do
+	begin
+		b := a * 0.0E5;
+		a := a + 1;
+		testMath := a and b
+	end;
+	
+	if a = 0 then if b = 0 then a := 1 else b := 1;
+	if a = 1 then if b = 1 then a := 2 else b := 5 else a := 3;
+	if ((a = -1) and (b = +2)) then begin if b = 0 then a := 1 end else b := 1;
+	if a then begin end
+end;
+function test:integer
+begin
+	test:=100
+end;
 
 begin
-	read(x, y);
-	write(gcd(x, y));
-	write(1+4.2E+2);
-	write(2*5.3);
-    x:= 2 - 10;
-    x :=2.0/10.0;
-	write(3/         {comment here}                600.1E-2);
-	write(4-		26297);
-        x := -4
-    {test symbols}
-    + - or
-    * / div mod and
-    = < > >= <= <>
-    :=
-    ();:[],
-    integer real
-    1 12 123 1234 12345 123456 1234567 12345678 123456789 1234567890
-    1. 12. 123. 1234. 12345. 1.0 12.0 123.0 1234.0 12345.0 1.09 12.09 123.09 1234.09 12345.09
-    1.23456 12.34567 123.45678 1234.56789 12345.67891
-    1.E2 1.E23 1.E+2 1.E+23 1.E-2 1.E-23
-    1.2E3 1.2E34 1.2E+3 1.2E+34 1.2E-3 1.2E-34
-    12345.67891E2 12345.67891E23 12345.67891E+2 12345.67891E+23 12345.67891E-2 12345.67891E-23
+	in := read(x, y);
+	out := write(gcd(x, y));
+	in := -input;
+	in := in + 0.5;
+	in := +0.5;
+	in := -0.5
+	
 end.

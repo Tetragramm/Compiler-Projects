@@ -49,7 +49,23 @@ class ReservedWordMachine : public TemplateMachine
 {
 public:
     ReservedWordMachine() {}
-    ReservedWordMachine(const vector< string >& reserved_words) : TemplateMachine( reserved_words ) {}
+    explicit ReservedWordMachine(const vector< string >& reserved_words) : TemplateMachine( reserved_words ) {}
+
+    TAPair runMachine(const std::string& line, int& idx) const override
+    {
+        const int start_idx = idx;
+        const TAPair temp = TemplateMachine::runMachine( line, idx );
+        if(idx == line.length() || !isalnum(line[idx]))
+        {
+            return temp;
+        }
+
+        if(temp != TAPair())
+        {
+            idx = start_idx;
+        }
+        return TAPair();
+    }
 
     void pushBack( const string& str )
     {
@@ -116,7 +132,7 @@ public:
 class RelOpMachine : public TemplateMachine
 {
 public:
-    RelOpMachine() : TemplateMachine( vector< string >{ ">=", "<=", "<>",  "=", "<", ">" } )
+    RelOpMachine() : TemplateMachine( vector< string >{ ">=", "<=", "<>",  "=", "<", ">", "not" } )
     {}
     
     TOKEN_TYPE getTokenType() const override
@@ -171,20 +187,20 @@ public:
         const int start_idx = idx;
         int digit_count = 0;
 
-        bool leadingZero = false;
+        bool leading_zero = false;
         while(idx < line.length() && isdigit(line[idx]))
         {
             //Leading Zero Check
             if(idx == start_idx && line[idx] == '0')
             {
-                leadingZero = true;
+                leading_zero = true;
             }
             
             idx++;
             digit_count++;
         }
 
-        if(digit_count > 1 && leadingZero)
+        if(digit_count > 1 && leading_zero)
             return LEADING_ZERO;
 
         //If it's a real instead...
@@ -219,28 +235,28 @@ public:
     {
         const int start_idx = idx;
         int digit_count = 0;
-        bool leadingZero = false;
-        bool trailingZero = false;
-        bool longReal = false;
-        bool longFraction = false;
-        bool longExponent = false;
-        bool missingExponent = false;
-        bool zeroExponent = false;
+        bool leading_zero = false;
+        bool trailing_zero = false;
+        bool long_real = false;
+        bool long_fraction = false;
+        bool long_exponent = false;
+        bool missing_exponent = false;
+        bool zero_exponent = false;
 
         while(idx < line.length() && isdigit(line[idx]))
         {
             //Leading Zero Check
             if(idx == start_idx && line[idx] == '0')
             {
-                leadingZero = true;
+                leading_zero = true;
             }
 
             idx++;
             digit_count++;
         }
 
-        if(!(digit_count > 1 && leadingZero))
-            leadingZero = false;
+        if(!(digit_count > 1 && leading_zero))
+            leading_zero = false;
 
         //If it's a real instead of an int
         //And actually is a number...
@@ -248,7 +264,7 @@ public:
         {
             if(digit_count > 5)
             {    
-                longReal = true;
+                long_real = true;
             }
 
             if(line[idx] == '.')
@@ -265,12 +281,12 @@ public:
                 //Trailing Zero check
                 if(digit_count > 1 && line[idx-1] == '0')
                 {
-                    trailingZero = true;
+                    trailing_zero = true;
                 }
             
                 if(digit_count > 5)
                 {    
-                    longFraction = true;
+                    long_fraction = true;
                 }
             }
 
@@ -287,7 +303,7 @@ public:
                 {
                     if(digit_count == 0 && line[idx] == '0')
                     {
-                        zeroExponent = true;
+                        zero_exponent = true;
                     }
                     idx++;
                     digit_count++;
@@ -295,28 +311,28 @@ public:
                 
                 if(digit_count > 2)
                 {    
-                    longExponent = true;
+                    long_exponent = true;
                 }
                 else if(digit_count == 0)
                 {
-                    missingExponent = true;
+                    missing_exponent = true;
                 }
             }
 
             //Error Handling
-            if(leadingZero)
+            if(leading_zero)
                 return LEADING_ZERO;
-            if(longReal)
+            if(long_real)
                 return LONG_REAL;
-            if(trailingZero)
+            if(trailing_zero)
                 return TRAILING_ZERO;
-            if(longFraction)
+            if(long_fraction)
                 return LONG_REAL_FRACTIONAL;
-            if(longExponent)
+            if(long_exponent)
                 return LONG_EXPONENT;
-            if(missingExponent)
+            if(missing_exponent)
                 return MISSING_EXPONENT;
-            if(zeroExponent)
+            if(zero_exponent)
                 return LEADING_ZERO_EXPONENT;
 
             //No errors
@@ -347,6 +363,7 @@ public:
         case '[':
         case ']':
         case ',':
+        case '.':
             idx++;
             return TAPair(getTokenType(), NONE);
         default:
@@ -362,9 +379,11 @@ public:
 
 class IDMachine : public Machine
 {
-    SymbolTable& sTable;
+    shared_ptr<SymbolTable>& _s_table;
 public:
-    IDMachine(SymbolTable& symbol_table): sTable(symbol_table) {}
+    IDMachine(shared_ptr<SymbolTable>& symbol_table): _s_table(symbol_table)
+    {
+    }
 
     TAPair runMachine( const string& line, int& idx ) const override
     {
@@ -384,7 +403,7 @@ public:
                 return LONG_ID;
             }
 
-            const int sTableIdx = sTable.addOrReturn( line.substr( start_idx, idx-start_idx ) );
+            const int sTableIdx = _s_table->addOrReturn( line.substr( start_idx, idx-start_idx ) );
             return TAPair(getTokenType(), sTableIdx);
         }
         //Invalid ID
@@ -399,10 +418,10 @@ public:
 
 class CatchAllMachine : public Machine
 {
-    const vector< string > wsChars;
+    const vector< string > _ws_chars;
     
 public:
-    CatchAllMachine() : wsChars( { " ", "\n", "\t" } ) {}
+    CatchAllMachine() : _ws_chars( { " ", "\n", "\t" } ) {}
 
     TAPair runMachine(const string& line, int& idx) const override
     {
@@ -419,7 +438,7 @@ private:
     bool matchesTemplate(const string& line, int idx) const
     {
         const int start_idx = idx;
-        for ( auto& str : wsChars )
+        for ( auto& str : _ws_chars )
         {
             idx = start_idx;
             bool match = true;
@@ -444,28 +463,44 @@ class TypeMachine : public TemplateMachine
 public:
     TypeMachine() : TemplateMachine({"integer", "real"}) {}
 
+    TAPair runMachine(const std::string& line, int& idx) const override
+    {
+        const int start_idx = idx;
+        const TAPair temp = TemplateMachine::runMachine( line, idx );
+        if(idx == line.length() || !isalnum(line[idx]))
+        {
+            return temp;
+        }
+
+        if(temp != TAPair())
+        {
+            idx = start_idx;
+        }
+        return TAPair();
+    }
+
     TOKEN_TYPE getTokenType() const override
     {
         return TYPE;
     }
 };
 
-PascalMachine::PascalMachine( const vector< string >& reserved_words, SymbolTable& symbol_table):_idx(-1), _s_table(symbol_table)
+PascalMachine::PascalMachine( const vector< string >& reserved_words, shared_ptr<SymbolTable>& symbol_table):_idx(-1), _s_table(symbol_table)
 {
-    _space_machines.push_back( make_unique<WhiteSpaceMachine>() );
-    _space_machines.push_back( make_unique<CommentMachine>() );
+    _space_machines.push_back( make_shared<WhiteSpaceMachine>() );
+    _space_machines.push_back( make_shared<CommentMachine>() );
 
-    _useful_machines.push_back( make_unique<ReservedWordMachine>(reserved_words) );
-    _useful_machines.push_back( make_unique<TypeMachine>() );
-    _useful_machines.push_back( make_unique<AddOpMachine>() );
-    _useful_machines.push_back( make_unique<MulOpMachine>() );
-    _useful_machines.push_back( make_unique<RelOpMachine>() );
-    _useful_machines.push_back( make_unique<AssignOpMachine>() );
-    _useful_machines.push_back( make_unique<RealMachine>() );
-    _useful_machines.push_back( make_unique<IntMachine>() );
-    _useful_machines.push_back( make_unique<SymbolMachine>() );
-    _useful_machines.push_back( make_unique<IDMachine>(_s_table) );
-    _useful_machines.push_back( make_unique<CatchAllMachine>() );
+    _useful_machines.push_back( make_shared<ReservedWordMachine>(reserved_words) );
+    _useful_machines.push_back( make_shared<TypeMachine>() );
+    _useful_machines.push_back( make_shared<AddOpMachine>() );
+    _useful_machines.push_back( make_shared<MulOpMachine>() );
+    _useful_machines.push_back( make_shared<RelOpMachine>() );
+    _useful_machines.push_back( make_shared<AssignOpMachine>() );
+    _useful_machines.push_back( make_shared<RealMachine>() );
+    _useful_machines.push_back( make_shared<IntMachine>() );
+    _useful_machines.push_back( make_shared<SymbolMachine>() );
+    _useful_machines.push_back( make_shared<IDMachine>(_s_table) );
+    _useful_machines.push_back( make_shared<CatchAllMachine>() );
 }
 
 void PascalMachine::setLine(const string& line)
@@ -477,7 +512,7 @@ void PascalMachine::setLine(const string& line)
 LexicalToken PascalMachine::getToken()
 {
     const int space_idx = _idx;
-    TAPair space = clearSpace();
+    const TAPair space = clearSpace();
     if(space != EMPTY_TOKEN)
     {
         return LexicalToken(_line.substr(space_idx, _idx-space_idx), space);
@@ -488,7 +523,7 @@ LexicalToken PascalMachine::getToken()
         for(const auto& m : _useful_machines)
         {
             const int start_idx = _idx;
-            TAPair p = m->runMachine( _line, _idx );
+            const TAPair p = m->runMachine( _line, _idx );
             if(p != EMPTY_TOKEN)
             {
                 return LexicalToken(_line.substr(start_idx, _idx-start_idx), p);
