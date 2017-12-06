@@ -11,7 +11,6 @@ public:
     virtual void testTable() = 0;
     
     virtual void setTokenStream(std::shared_ptr<std::ostream> stream) = 0;
-    virtual void setListingStream(std::shared_ptr<std::ostream> stream) = 0;
 
     static std::shared_ptr<Parser> createPascalParser(
         std::ifstream& r_words_file,

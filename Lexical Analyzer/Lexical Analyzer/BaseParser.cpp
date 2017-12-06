@@ -2,7 +2,7 @@
 #include "BaseParser.h"
 #include <iomanip>
 
-bool BaseParser::match( const LexicalToken& m )
+bool BaseParser::match( const LexicalToken& m, const std::string& current_FUNC )
 {
     if(check(m))
     {
@@ -15,13 +15,13 @@ bool BaseParser::match( const LexicalToken& m )
         return true;
     }
     
-    _output<<"Syntax Error at line "<<getLineNumber()<<": Expected "<<m<<",";
+    _output<<"Syntax Error at line "<<getLineNumber()<<" in "<<current_FUNC<<": Expected "<<m<<",";
     _output<<" but Found "<<_tok<<"\n";
     _tok = getToken();
     return false;
 }
 
-bool BaseParser::match( const TAPair& m )
+bool BaseParser::match( const TAPair& m, const std::string& current_FUNC )
 {
     if(check(m))
     {
@@ -34,13 +34,13 @@ bool BaseParser::match( const TAPair& m )
         return true;
     }
     
-    _output<<"Syntax Error at line "<<getLineNumber()<<": Expected "<<m<<",";
+    _output<<"Syntax Error at line "<<getLineNumber()<<" in "<<current_FUNC<<": Expected "<<m<<",";
     _output<<" but Found "<<_tok.ta<<"\n";
     _tok = getToken();
     return false;
 }
 
-bool BaseParser::match( const TOKEN_TYPE& m )
+bool BaseParser::match( const TOKEN_TYPE& m, const std::string& current_FUNC )
 {
     if(check(m))
     {
@@ -53,7 +53,7 @@ bool BaseParser::match( const TOKEN_TYPE& m )
         return true;
     }
     
-    _output<<"Syntax Error at line "<<getLineNumber()<<": Expected ("<<m<<"),";
+    _output<<"Syntax Error at line "<<getLineNumber()<<" in "<<current_FUNC<<": Expected "<<m<<",";
     _output<<" but Found ("<<_tok.ta.token<<")\n";
     _tok = getToken();
     return false;
@@ -84,15 +84,16 @@ void BaseParser::endParsing() const
 LexicalToken BaseParser::getToken()
 {
     LexicalToken tok;
-    while(!_file.eof())
+    bool eof = false;
+    while(!eof)
     {
         do
         {
             tok = _machine->getToken();
 
-            if(_listing_stream && tok.ta.token == LEXICAL_ERROR)
+            if(tok.ta.token == LEXICAL_ERROR)
             {
-                *_listing_stream<<tok<<"\n";
+                _output<<tok<<"\n";
             }
             
             if(tok.ta != EMPTY_TOKEN)
@@ -108,10 +109,17 @@ LexicalToken BaseParser::getToken()
             }
         } while( tok.ta != EMPTY_TOKEN);
 
-        std::string line;
-        getLine(line);
+        if(!_file.eof())
+        {
+            std::string line;
+            getLine(line);
 
-        _machine->setLine( line );
+            _machine->setLine( line );
+        }
+        else
+        {
+            eof = true;
+        }
     }
     return LexicalToken("", TAPair(END_OF_FILE, NONE));
 }
@@ -122,8 +130,6 @@ void BaseParser::synch( const std::vector< LexicalToken >& tokens )
     {
         do
         {
-            _tok = getToken();
-            
             if(_tok.ta != EMPTY_TOKEN)
             {
                 for(const LexicalToken& t : tokens)
@@ -148,6 +154,8 @@ void BaseParser::synch( const std::vector< LexicalToken >& tokens )
                     }
                 }
             }
+            
+            _tok = getToken();
         } while( _tok.ta != EMPTY_TOKEN);
     }
 }
@@ -161,8 +169,7 @@ void BaseParser::getLine(std::string& line)
 {
     getline(_file, line);
     _line_number++;
-    if(_listing_stream)
-        *_listing_stream<<"Line Number "<<_line_number<<"\n";
+    _output<<"Line Number "<<_line_number<<"\n";
 }
 
 void BaseParser::parse()
@@ -173,16 +180,11 @@ void BaseParser::parse()
     _machine->setLine( line );
 }
 
-void BaseParser::setTokenStream( std::shared_ptr<std::ostream> stream )
+void BaseParser::setTokenStream( const std::shared_ptr<std::ostream> stream )
 {
     _token_stream = stream;
     *_token_stream<< std::setw(10)<<"Line No."<<"  ";
     *_token_stream<< std::setw(10)<<"Lexeme"<<"  ";
     *_token_stream<< std::setw(14)<<"TOKEN_TYPE"<<"  ";
     *_token_stream<< std::setw(10)<<"ATTRIBUTE"<<"\n";
-}
-
-void BaseParser::setListingStream( std::shared_ptr<std::ostream> stream )
-{
-    _listing_stream = stream;
 }

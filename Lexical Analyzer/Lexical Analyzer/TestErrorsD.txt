@@ -1,0 +1,14 @@
+program example input, output);
+var x:integer; var y: integer;
+function test:integer;
+begin
+	test:=100
+end;
+
+begin
+	in := read(x, y);
+	out := write(gcd(x, y));
+	in := -input;
+	in := -0.5
+	
+end.

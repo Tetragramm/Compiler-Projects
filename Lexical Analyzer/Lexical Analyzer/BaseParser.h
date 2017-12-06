@@ -18,7 +18,6 @@ public:
     void parse() override;
 
     void setTokenStream(std::shared_ptr<std::ostream> stream) override;
-    void setListingStream(std::shared_ptr<std::ostream> stream) override;
 
 protected:
     std::shared_ptr<SymbolTable> _table;
@@ -28,9 +27,9 @@ protected:
 
     std::shared_ptr<LanguageMachine> _machine;
 
-    bool match(const LexicalToken& m);
-    bool match(const TAPair& m);
-    bool match(const TOKEN_TYPE& m);
+    bool match(const LexicalToken& m, const std::string& current_func);
+    bool match(const TAPair& m, const std::string& current_func);
+    bool match(const TOKEN_TYPE& m, const std::string& current_func);
 
     bool check(const LexicalToken& m) const;
     bool check(const TAPair& m) const;
@@ -44,7 +43,6 @@ protected:
 
     std::ostream& _output;
     std::shared_ptr< std::ostream > _token_stream;
-    std::shared_ptr< std::ostream > _listing_stream;
 
 private:
     std::ifstream& _file;
