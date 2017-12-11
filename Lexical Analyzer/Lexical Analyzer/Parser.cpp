@@ -44,13 +44,16 @@ private:
     bool subprogram_declarations_2();
     bool compound_statement();
     bool compound_statement_2();
-    bool type();
-    bool standard_type();
+    struct Type_Ext { Info info; };
+    bool type(Type_Ext& ext);
+    struct Standard_Type_Ext { E_TYPE type; };
+    bool standard_type(Standard_Type_Ext& ext);
     bool subprogram_declaration();
     bool subprogram_declaration_2();
     bool subprogram_declaration_3();
     bool subprogram_head();
-    bool subprogram_head_2();
+    struct SP_Head_Ext{FuncInfo fInfo;};
+    bool subprogram_head_2(SP_Head_Ext& ext);
     bool optional_statements();
     bool arguments();
     bool statement_list();
@@ -85,6 +88,7 @@ void PascalParser::parse()
 
 bool PascalParser::program()
 {
+    _scope = make_shared<Scope>();
     //_output<<"Program -> program id ( identifier_list ) ; program_2\n";
     if(check(LexicalToken("program", RESERVED_WORD)))
     {
@@ -267,14 +271,17 @@ bool PascalParser::declarations()
 {
     if(check(LexicalToken("var", RESERVED_WORD)))
     {
+        unsigned id;
+        Type_Ext type_ext;
         //_output<<"declarations -> var id : type ; declarations_2\n";
         if(match(LexicalToken("var", RESERVED_WORD), __FUNCTION__ )
-            && match(ID, __FUNCTION__ )
+            && getIdSymbol( id, __FUNCTION__ )
             && match(LexicalToken(":", SYMBOL), __FUNCTION__ )
-            && type()
+            && type(type_ext)
             && match(LexicalToken(";", SYMBOL), __FUNCTION__ )
             && declarations_2())
         {
+            _scope->addVariable( id, type_ext.info );
             //var id : type ; declarations_2
             return true;
         }
@@ -450,7 +457,7 @@ bool PascalParser::compound_statement_2()
     return true;
 }
 
-bool PascalParser::type()
+bool PascalParser::type(Type_Ext& ext)
 {
     //_output<<"type -> ";
     //standard_type | array [ num .. num ] of standard_type
@@ -458,24 +465,32 @@ bool PascalParser::type()
         || check(LexicalToken("real", TYPE)))
     {
         //_output<<"standard_type\n";
-        if(standard_type())
+        Standard_Type_Ext st_ext;
+        if(standard_type(st_ext))
         {
+            ext.info = VarInfo(st_ext.type);
             return true;
         }
     }
     else if(check(LexicalToken("array", RESERVED_WORD)))
     {
+        Standard_Type_Ext st_ext;
+        ArrayInfo info;
+        int start, stop;
         if(match(LexicalToken("array", RESERVED_WORD), __FUNCTION__ )
             && match(LexicalToken("[", SYMBOL), __FUNCTION__ )
-            && match(INTEGER, __FUNCTION__ )
+            && getNum( start, __FUNCTION__ )
             && match(LexicalToken(".", SYMBOL), __FUNCTION__ )
             && match(LexicalToken(".", SYMBOL), __FUNCTION__ )
-            && match(INTEGER, __FUNCTION__ )
+            && getNum( stop, __FUNCTION__ )
             && match(LexicalToken("]", SYMBOL), __FUNCTION__ )
             && match(LexicalToken("of", RESERVED_WORD), __FUNCTION__ )
-            && standard_type())
+            && standard_type(st_ext))
         {
             //_output<<"array [ num .. num ] of standard_type\n";
+            info.offset = start;
+            info.count = stop-start;
+            ext.info = info;
             return true;
         }
     }
@@ -492,10 +507,11 @@ bool PascalParser::type()
         LexicalToken(";", SYMBOL),
         LexicalToken(")", SYMBOL),
     });
+    ext.info = VarInfo();
     return true;
 }
 
-bool PascalParser::standard_type()
+bool PascalParser::standard_type(Standard_Type_Ext& ext)
 {
     //_output<<"standard_type -> ";
     //integer | real
@@ -504,6 +520,7 @@ bool PascalParser::standard_type()
         //_output<<"integer\n";
         if(match(LexicalToken("integer", TYPE), __FUNCTION__ ))
         {
+            ext.type = T_INTEGER;
             return true;
         }
     }
@@ -512,6 +529,7 @@ bool PascalParser::standard_type()
         //_output<<"real\n";
         if(match(LexicalToken("real", TYPE), __FUNCTION__ ))
         {
+            ext.type = T_REAL;
             return true;
         }
     }
@@ -527,6 +545,7 @@ bool PascalParser::standard_type()
         LexicalToken(";", SYMBOL),
         LexicalToken(")", SYMBOL),
     });
+    ext.type = T_ERROR;
     return true;
 }
 
@@ -633,10 +652,16 @@ bool PascalParser::subprogram_head()
     if(check(LexicalToken("function", RESERVED_WORD)))
     {
         //_output<<"subprogram_head -> function id subprogram_head_2\n";
+        SP_Head_Ext sp2_ext;
+        unsigned id;
         if(match(LexicalToken("function", RESERVED_WORD), __FUNCTION__ )
-            && match(ID, __FUNCTION__ )
-            && subprogram_head_2())
+            && getIdSymbol( id, __FUNCTION__ )
+            && ((_scope = _scope->newScope()))
+            && subprogram_head_2(sp2_ext))
         {
+            _scope = _scope->getParent();
+            Info f_info = sp2_ext.fInfo;
+            _scope->addVariable( id, f_info );
             return true;
         }
     }
@@ -655,28 +680,32 @@ bool PascalParser::subprogram_head()
     return true;
 }
 
-bool PascalParser::subprogram_head_2()
+bool PascalParser::subprogram_head_2(SP_Head_Ext& ext)
 {
     //_output<<"subprogram_head_2 -> ";
     //arguments : standard_type ; | : standard_type ;
     if(check(LexicalToken("(", SYMBOL)))
     {
         //_output<<"arguments : standard_type ;\n";
+        Standard_Type_Ext st_ext;
         if(arguments()
             && match(LexicalToken(":", SYMBOL), __FUNCTION__ )
-            && standard_type()
+            && standard_type(st_ext)
             && match(LexicalToken(";", SYMBOL), __FUNCTION__ ))
         {
+            ext.type = st_ext.type;
             return true;
         }
     }
     else if(check(LexicalToken(":", SYMBOL)))
     {
         //_output<<": standard_type ;\n";
+        Standard_Type_Ext st_ext;
         if(match(LexicalToken(":", SYMBOL), __FUNCTION__ )
-            && standard_type()
+            && standard_type(st_ext)
             && match(LexicalToken(";", SYMBOL), __FUNCTION__ ))
         {
+            ext.type = st_ext.type;
             return true;
         }
     }
@@ -818,12 +847,15 @@ bool PascalParser::parameter_list()
 {
     if(check(ID))
     {
+        Type_Ext type_ext;
+        unsigned id;
         //_output<<"parameter_list -> id : type parameter_list_2\n";
-        if(match(ID, __FUNCTION__ )
+        if(getIdSymbol( id, __FUNCTION__ )
             && match(LexicalToken(":", SYMBOL), __FUNCTION__ )
-            && type()
+            && type(type_ext)
             && parameter_list_2())
         {
+            _scope->addVariable( id, type_ext.info );
             return true;
         }
     }
@@ -846,13 +878,16 @@ bool PascalParser::parameter_list_2()
     //; id : type parameter_list_2 | \epsilon
     if(check(LexicalToken(";", SYMBOL)))
     {
+        Type_Ext type_ext;
+        unsigned id;
         //_output<<"; id : type parameter_list_2 \n";
         if(match(LexicalToken(";", SYMBOL), __FUNCTION__ )
-            && match(ID, __FUNCTION__ )
+            && getIdSymbol( id, __FUNCTION__ )
             && match(LexicalToken(":", SYMBOL), __FUNCTION__ )
-            && type()
+            && type(type_ext)
             && parameter_list_2())
         {
+            _scope->addVariable( id, type_ext.info );
             return true;
         }
     }

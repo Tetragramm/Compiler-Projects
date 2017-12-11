@@ -2,6 +2,7 @@
 #include "Parser.h"
 #include "SymbolTable.h"
 #include "Machines.h"
+#include "Scope.h"
 
 #ifndef _BASE_PARSER_H
 #define _BASE_PARSER_H
@@ -35,6 +36,9 @@ protected:
     bool check(const TAPair& m) const;
     bool check(const TOKEN_TYPE& m) const;
 
+    bool getNum(int& value, const std::string& current_FUNC);
+    bool getIdSymbol(unsigned& symbol, const std::string& current_FUNC);
+
     void endParsing() const;
     void synch(const std::vector<LexicalToken>& tokens);
 
@@ -43,6 +47,8 @@ protected:
 
     std::ostream& _output;
     std::shared_ptr< std::ostream > _token_stream;
+
+    std::shared_ptr<Scope> _scope;
 
 private:
     std::ifstream& _file;

@@ -74,6 +74,24 @@ bool BaseParser::check( const TOKEN_TYPE& m ) const
     return (m == _tok.ta.token);
 }
 
+bool BaseParser::getNum( int& value, const std::string& current_FUNC )
+{
+    if(check(INTEGER))
+    {
+        value = stoi( _tok.lex );
+    }
+    return match( INTEGER, current_FUNC );
+}
+
+bool BaseParser::getIdSymbol( unsigned& symbol, const std::string& current_FUNC )
+{
+    if(check(ID))
+    {
+        symbol = static_cast< int >(_tok.ta.attribute);
+    }
+    return match( ID, current_FUNC );
+}
+
 void BaseParser::endParsing() const
 {
     _output << "End of Parsing\n";
