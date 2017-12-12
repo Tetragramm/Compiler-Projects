@@ -363,6 +363,7 @@ public:
         case '[':
         case ']':
         case ',':
+        case '.':
             idx++;
             return TAPair(getTokenType(), NONE);
         default:

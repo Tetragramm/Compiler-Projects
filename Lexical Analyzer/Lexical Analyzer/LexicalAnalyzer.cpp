@@ -25,17 +25,17 @@ int main()
     }
     r_words_file.close();
 
-    SymbolTable symbol_table;
-
-    PascalMachine machine(r_words, symbol_table);
-
     vector<string> file_names{"TestPascal", "TestErrors"};
 
     for(string& file : file_names)
     {
+        SymbolTable symbol_table;
+        PascalMachine machine(r_words, symbol_table);
+
         ifstream input_file(file+".txt");
         ofstream listing_file(file+"Listing.txt");
         ofstream token_file(file+"Tokens.txt");
+        ofstream symbol_table_file(file+"SymbolTable.txt");
         token_file<<setw(10)<<"Line No."<<"  ";
         token_file<<setw(10)<<"Lexeme"<<"  ";
         token_file<<setw(14)<<"TOKEN_TYPE"<<"  ";
@@ -69,6 +69,8 @@ int main()
 
             line_num++;
         }
+
+        symbol_table_file << symbol_table;
     }
 
     return 0;

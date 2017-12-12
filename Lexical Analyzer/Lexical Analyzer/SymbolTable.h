@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <algorithm>
+#include <iomanip>
 
 #ifndef SYMBOL_TABLE_H_
 #define SYMBOL_TABLE_H_
@@ -39,6 +40,20 @@ public:
     {
         return _table[idx];
     }
+
+    friend std::ostream& operator<<(std::ostream& os, const SymbolTable& st);
 };
+
+inline std::ostream& operator<<( std::ostream& os, const SymbolTable& st )
+{
+    os<<"Symbol Table\n\n";
+    for(const Symbol& s : st._table)
+    {
+        os<< std::setw(10)<<s.lex<<"  "<<s.idx<<"\n";
+    }
+    os<<"End of Symbol Table\n";
+    return os;
+}
+
 
 #endif

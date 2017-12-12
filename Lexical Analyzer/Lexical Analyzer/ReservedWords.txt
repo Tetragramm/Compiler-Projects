@@ -1,6 +1,7 @@
 program
 begin
 end
+end.
 var
 if
 then
