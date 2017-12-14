@@ -2,6 +2,7 @@
 #include "Parser.h"
 #include "Machines.h"
 #include "BaseParser.h"
+#include "Scope.h"
 
 using namespace std;
 
@@ -55,11 +56,14 @@ private:
     struct SP_Head_Ext{FuncInfo fInfo;};
     bool subprogram_head_2(SP_Head_Ext& ext);
     bool optional_statements();
-    bool arguments();
+    typedef variant<VarInfo, ArrayInfo> ParInfo;
+    struct Arg_Ext{vector<ParInfo> list;};
+    bool arguments(Arg_Ext& ext);
     bool statement_list();
     bool statement_list_2();
-    bool parameter_list();
-    bool parameter_list_2();
+    struct Par_List_Ext{vector<ParInfo> list;};
+    bool parameter_list(Par_List_Ext& ext);
+    bool parameter_list_2(Par_List_Ext& ext);
     bool statement();
     bool statement_2();
     bool variable();
@@ -71,8 +75,12 @@ private:
     bool term();
     bool term_2();
     bool sign();
-    bool factor();
-    bool factor_2();
+    bool checkParameters(vector<ParInfo>& actual, vector<ParInfo>& found) const;
+    struct Fac_Ext { Info info; };
+    bool factor(Fac_Ext& ext);
+    struct Fac_2_Ext{variant<monostate, vector<ParInfo>, VarInfo> type;};
+    bool factor_prod_1( unsigned id_idx, Fac_Ext& ext );
+    bool factor_2(Fac_2_Ext& ext);
     bool expression_list();
     bool expression_list_2();
 };
@@ -488,7 +496,7 @@ bool PascalParser::type(Type_Ext& ext)
             && standard_type(st_ext))
         {
             //_output<<"array [ num .. num ] of standard_type\n";
-            info.offset = start;
+            info.access_offset = start;
             info.count = stop-start;
             ext.info = info;
             return true;
@@ -660,7 +668,8 @@ bool PascalParser::subprogram_head()
             && subprogram_head_2(sp2_ext))
         {
             _scope = _scope->getParent();
-            Info f_info = sp2_ext.fInfo;
+            Info f_info;
+            f_info = sp2_ext.fInfo;
             _scope->addVariable( id, f_info );
             return true;
         }
@@ -688,12 +697,14 @@ bool PascalParser::subprogram_head_2(SP_Head_Ext& ext)
     {
         //_output<<"arguments : standard_type ;\n";
         Standard_Type_Ext st_ext;
-        if(arguments()
+        Arg_Ext args;
+        if(arguments(args)
             && match(LexicalToken(":", SYMBOL), __FUNCTION__ )
             && standard_type(st_ext)
             && match(LexicalToken(";", SYMBOL), __FUNCTION__ ))
         {
-            ext.type = st_ext.type;
+            ext.fInfo.type = st_ext.type;
+            ext.fInfo.parameters = args.list;
             return true;
         }
     }
@@ -705,7 +716,7 @@ bool PascalParser::subprogram_head_2(SP_Head_Ext& ext)
             && standard_type(st_ext)
             && match(LexicalToken(";", SYMBOL), __FUNCTION__ ))
         {
-            ext.type = st_ext.type;
+            ext.fInfo.type = st_ext.type;
             return true;
         }
     }
@@ -754,15 +765,17 @@ bool PascalParser::optional_statements()
     return true;
 }
 
-bool PascalParser::arguments()
+bool PascalParser::arguments(Arg_Ext& ext)
 {
     if(check(LexicalToken("(", SYMBOL)))
     {
+        Par_List_Ext params;
         //_output<<"arguments -> ( parameter_list ) \n";
         if(match(LexicalToken("(", SYMBOL), __FUNCTION__ )
-            && parameter_list()
+            && parameter_list(params)
             && match(LexicalToken(")", SYMBOL), __FUNCTION__))
         {
+            ext.list = params.list;
             return true;
         }
     }
@@ -843,7 +856,7 @@ bool PascalParser::statement_list_2()
     return true;
 }
 
-bool PascalParser::parameter_list()
+bool PascalParser::parameter_list(Par_List_Ext& ext)
 {
     if(check(ID))
     {
@@ -852,11 +865,34 @@ bool PascalParser::parameter_list()
         //_output<<"parameter_list -> id : type parameter_list_2\n";
         if(getIdSymbol( id, __FUNCTION__ )
             && match(LexicalToken(":", SYMBOL), __FUNCTION__ )
-            && type(type_ext)
-            && parameter_list_2())
+            && type(type_ext))
         {
+            ParInfo param;
+            if(holds_alternative<VarInfo>(type_ext.info))
+            {
+                param = get<VarInfo>(type_ext.info);
+            }
+            else if(holds_alternative<ArrayInfo>(type_ext.info))
+            {
+                param = get<ArrayInfo>(type_ext.info);
+            }
+            else
+            {
+                param = VarInfo(T_ERROR);
+                _output<<"Type Error at line "<<getLineNumber()<<" in "<<__FUNCTION__<<": Expected "<<
+                    " a Variable or Array, but found a function.\n";
+                
+            }
+            ext.list.push_back( param );
             _scope->addVariable( id, type_ext.info );
-            return true;
+
+            Par_List_Ext lst_2;
+            if(parameter_list_2(lst_2))
+            {
+                for(auto& p : lst_2.list)
+                    ext.list.push_back( p );
+                return true;
+            }
         }
     }
     else
@@ -872,7 +908,7 @@ bool PascalParser::parameter_list()
     return true;
 }
 
-bool PascalParser::parameter_list_2()
+bool PascalParser::parameter_list_2(Par_List_Ext& ext)
 {
     //_output<<"parameter_list_2 -> ";
     //; id : type parameter_list_2 | \epsilon
@@ -884,11 +920,34 @@ bool PascalParser::parameter_list_2()
         if(match(LexicalToken(";", SYMBOL), __FUNCTION__ )
             && getIdSymbol( id, __FUNCTION__ )
             && match(LexicalToken(":", SYMBOL), __FUNCTION__ )
-            && type(type_ext)
-            && parameter_list_2())
+            && type(type_ext))
         {
+            ParInfo param;
+            if(holds_alternative<VarInfo>(type_ext.info))
+            {
+                param = get<VarInfo>(type_ext.info);
+            }
+            else if(holds_alternative<ArrayInfo>(type_ext.info))
+            {
+                param = get<ArrayInfo>(type_ext.info);
+            }
+            else
+            {
+                param = VarInfo(T_ERROR);
+                _output<<"Type Error at line "<<getLineNumber()<<" in "<<__FUNCTION__<<": Expected "<<
+                    " a Variable or Array, but found a function.\n";
+                
+            }
+            ext.list.push_back( param );
             _scope->addVariable( id, type_ext.info );
-            return true;
+
+            Par_List_Ext lst_2;
+            if(parameter_list_2(lst_2))
+            {
+                for(auto& p : lst_2.list)
+                    ext.list.push_back( p );
+                return true;
+            }
         }
     }
     else if(check(LexicalToken(")", SYMBOL)))
@@ -1420,32 +1479,169 @@ bool PascalParser::sign()
     return true;
 }
 
-bool PascalParser::factor()
+bool PascalParser::checkParameters(vector<ParInfo>& actual, vector<ParInfo>& found) const
+{
+    if(actual.size() != found.size())
+    {
+        _output<<"Type Error at line "<<getLineNumber()<<" in "<<__FUNCTION__<<": "
+            <<"Incorrect Number of parameters in function call.  Expected "
+            <<actual.size()<<" but found "<<found.size()<<".\n";
+        return false;
+    }
+    for(int idx = 0; idx<actual.size(); ++idx)
+    {
+        if(holds_alternative<VarInfo>( actual[idx] ) && holds_alternative<VarInfo>( found[idx] ))
+        {
+            const VarInfo a = get<VarInfo>(actual[idx]);
+            const VarInfo f = get<VarInfo>(found[idx]);
+            if(a.type != f.type)
+            {
+                _output<<"Type Error at line "<<getLineNumber()<<" in "<<__FUNCTION__<<": "
+                    "Parameter "<<idx<<" incorrect.  Expected "
+                    <<getString(a.type)<<" but found "<<getString(f.type)<<".\n";
+                return false;
+            }
+        }
+        else if(holds_alternative<ArrayInfo>( actual[idx] ) && holds_alternative<ArrayInfo>( found[idx] ))
+        {
+            const ArrayInfo a = get<ArrayInfo>(actual[idx]);
+            const ArrayInfo f = get<ArrayInfo>(found[idx]);
+            if(a.type != f.type || a.access_offset != f.access_offset || a.count != f.count)
+            {
+                _output<<"Type Error at line "<<getLineNumber()<<" in "<<__FUNCTION__<<": "
+                    "Parameter "<<idx<<" incorrect.  Expected "
+                    <<getString(a.type)<<" array["<<a.access_offset<<" .. "<<a.count<<"]"
+                    <<" but found "
+                    <<getString(f.type)<<" array["<<f.access_offset<<" .. "<<f.count<<"].\n";
+                return false;
+            }
+        }
+        else
+        {
+            if(holds_alternative<VarInfo>( actual[idx] ))
+            {
+                const VarInfo a = get<VarInfo>(actual[idx]);
+                const ArrayInfo f = get<ArrayInfo>(found[idx]);
+                _output<<"Type Error at line "<<getLineNumber()<<" in "<<__FUNCTION__<<": "
+                    <<"Parameter "<<idx<<" incorrect.  Expected an "<<getString(a.type)<<" but found "
+                    <<getString(f.type)<<" array["<<f.access_offset<<" .. "<<f.count<<"].\n";
+            }
+            else
+            {
+                const ArrayInfo a = get<ArrayInfo>(actual[idx]);
+                const VarInfo f = get<VarInfo>(found[idx]);
+                _output<<"Type Error at line "<<getLineNumber()<<" in "<<__FUNCTION__<<": "
+                    <<"Parameter "<<idx<<" incorrect.  Expected :"
+                    <<getString(a.type)<<" array["<<a.access_offset<<" .. "<<a.count<<"]"
+                    <<" but found "<<getString(f.type)<<".\n";
+            }
+            return false;
+        }
+    }
+    return true;
+}
+
+bool PascalParser::factor_prod_1( const unsigned id_idx, Fac_Ext& ext )
+{
+    //_output<<"id factor_2\n";
+    VarInfo var;
+    ;
+    Info variable = _scope->getVariable(id_idx);
+    Fac_2_Ext fac_2;
+    if(factor_2(fac_2))
+    {
+        if(holds_alternative<monostate>( fac_2.type )) //if factor_2 is epsilon
+        {
+            if(holds_alternative<FuncInfo>(variable))
+            {
+                var.type = T_ERROR;
+                _output<<"Type Error at line "<<getLineNumber()<<" in "<<__FUNCTION__<<": "
+                    <<"Function "<<_table->get( id_idx ).lex<<" used as a variable.\n";
+                ext.info = var;
+            }
+            else
+            {
+                ext.info = variable;
+            }
+        }
+        else if(holds_alternative<vector<ParInfo>>( fac_2.type )) //if factor_2 is ( parameter_list )
+        {
+            if(auto func = get_if<FuncInfo>( &variable ))
+            {
+                var.type = func->type;
+                auto vec = get<vector<ParInfo>>(fac_2.type);
+                if(!checkParameters( func->parameters, vec ))
+                    var.type = T_ERROR;
+            }
+            ext.info = var;
+        }
+        else //if factor_2 is [expression]
+        {
+            var.type = T_ERROR;
+            if(holds_alternative<ArrayInfo>(variable))
+            {
+                const VarInfo& accessor = get<VarInfo>(fac_2.type);
+                if(accessor.type != T_INTEGER)
+                {
+                    _output<<"Type Error at line "<<getLineNumber()<<" in "<<__FUNCTION__<<": "
+                        <<"Array index type is T_INTEGER, but found "<<getString(accessor.type)<<".\n";
+                }
+                else
+                {
+                    const ArrayInfo arr = get<ArrayInfo>(variable);
+                    var.type = arr.type;
+                }
+            }
+            else if(holds_alternative<FuncInfo>(variable))
+            {
+                _output<<"Type Error at line "<<getLineNumber()<<" in "<<__FUNCTION__<<": "
+                    <<"Attempting to access Function as an Array.\n";
+            }
+            else
+            {
+                _output<<"Type Error at line "<<getLineNumber()<<" in "<<__FUNCTION__<<": "
+                    <<"Attempting to access Variable as an Array.\n";
+            }
+            ext.info = var;
+        }
+        return true;
+    }
+    return false;
+}
+
+bool PascalParser::factor(Fac_Ext& ext)
 {
     //_output<<"factor -> ";
     // id factor_2 | num | ( expression ) | not factor
     if(check(ID))
     {
         //_output<<"id factor_2\n";
-        if(match(ID, __FUNCTION__ )
-            && factor_2())
+        unsigned id_idx;
+        if(getIdSymbol( id_idx, __FUNCTION__ ))
         {
+            factor_prod_1( id_idx, ext );
             return true;
         }
     }
     else if(check(INTEGER))
     {
         //_output<<"num\n";
-        if(match(INTEGER, __FUNCTION__ ))
+        int value;
+        if(getNum(value, __FUNCTION__))
         {
+            VarInfo info(T_INTEGER);
+            ext.info = info;
             return true;
         }
     }
     else if(check(REAL))
     {
         //_output<<"num\n";
-        if(match(REAL, __FUNCTION__ ))
+        double value;
+        if(getNum(value, __FUNCTION__))
         {
+            VarInfo info(T_REAL);
+            ext.info = info;
             return true;
         }
     }
@@ -1456,15 +1652,40 @@ bool PascalParser::factor()
             && expression()
             && match(LexicalToken(")", SYMBOL), __FUNCTION__ ))
         {
+            //TODO: Expression.info
             return true;
         }
     }
     else if(check(LexicalToken("not", REL_OP)))
     {
         //_output<<"not factor\n";
+        Fac_Ext fac;
         if(match(LexicalToken("not", REL_OP), __FUNCTION__ )
-            && factor())
+            && factor(fac))
         {
+            if(holds_alternative<VarInfo>( fac.info ))
+            {
+                const VarInfo v = get<VarInfo>(fac.info);
+                if(v.type == T_BOOLEAN)
+                {
+                    ext.info = fac.info;
+                }
+                else
+                {
+                    _output<<"Type Error at line "<<getLineNumber()<<" in "<<__FUNCTION__<<": "
+                        <<"REL_OP not requires T_BOOLEAN but found "<<v.type<<".\n";
+                }
+            }
+            else if(holds_alternative<ArrayInfo>( fac.info ))
+            {
+                _output<<"Type Error at line "<<getLineNumber()<<" in "<<__FUNCTION__<<": "
+                    <<"REL_OP not requires T_BOOLEAN but found an array.\n";
+            }
+            else if(holds_alternative<FuncInfo>( fac.info ))
+            {
+                _output<<"Type Error at line "<<getLineNumber()<<" in "<<__FUNCTION__<<": "
+                    <<"REL_OP not requires T_BOOLEAN but found a function.\n";
+            }
             return true;
         }
     }
@@ -1495,7 +1716,7 @@ bool PascalParser::factor()
     return true;
 }
 
-bool PascalParser::factor_2()
+bool PascalParser::factor_2(Fac_2_Ext& ext)
 {
     //_output<<"factor_2 -> ";
     //(expression_list) | [ expression ] | \epsilon
@@ -1506,6 +1727,7 @@ bool PascalParser::factor_2()
             && expression_list()
             && match(LexicalToken(")", SYMBOL), __FUNCTION__ ))
         {
+            ext.type = exp_list.type;
             return true;
         }
     }
@@ -1516,6 +1738,7 @@ bool PascalParser::factor_2()
             && expression()
             && match(LexicalToken("]", SYMBOL), __FUNCTION__ ))
         {
+            ext.type = exp.type;
             return true;
         }
     }
@@ -1532,6 +1755,7 @@ bool PascalParser::factor_2()
         || check(LexicalToken("else", RESERVED_WORD)))
     {
         //_output<<"epsilon\n";
+        ext.type = monostate();
         return true;
     }
     else

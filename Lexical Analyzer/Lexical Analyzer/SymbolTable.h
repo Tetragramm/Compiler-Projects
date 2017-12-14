@@ -21,11 +21,16 @@ public:
     {
         std::cout<<"Constructing ST\n";
     }
+
     int addOrReturn( const std::string& lex );
 
     Symbol& operator[]( const unsigned int idx );
 
     const Symbol& operator[]( const unsigned int idx ) const;
+
+    Symbol& get( const unsigned int idx );
+
+    const Symbol& get( const unsigned int idx ) const;
 };
 
 #endif

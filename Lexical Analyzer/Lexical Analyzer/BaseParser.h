@@ -37,6 +37,7 @@ protected:
     bool check(const TOKEN_TYPE& m) const;
 
     bool getNum(int& value, const std::string& current_FUNC);
+    bool getNum(double& value, const std::string& current_FUNC);
     bool getIdSymbol(unsigned& symbol, const std::string& current_FUNC);
 
     void endParsing() const;

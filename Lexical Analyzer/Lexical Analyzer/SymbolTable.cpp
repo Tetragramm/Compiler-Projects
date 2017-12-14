@@ -33,3 +33,14 @@ inline const Symbol& SymbolTable::operator[]( const unsigned idx ) const
 {
     return _table[idx];
 }
+
+inline Symbol& SymbolTable::get( const unsigned idx)
+{
+    return _table[idx];
+}
+
+inline const Symbol& SymbolTable::get( const unsigned idx) const
+{
+    return _table[idx];
+}
+

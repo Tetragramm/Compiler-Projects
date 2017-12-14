@@ -83,6 +83,15 @@ bool BaseParser::getNum( int& value, const std::string& current_FUNC )
     return match( INTEGER, current_FUNC );
 }
 
+bool BaseParser::getNum( double& value, const std::string& current_FUNC )
+{
+    if(check(REAL))
+    {
+        value = stod( _tok.lex );
+    }
+    return match( REAL, current_FUNC );
+}
+
 bool BaseParser::getIdSymbol( unsigned& symbol, const std::string& current_FUNC )
 {
     if(check(ID))
