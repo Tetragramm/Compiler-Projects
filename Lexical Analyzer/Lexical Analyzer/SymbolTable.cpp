@@ -18,28 +18,29 @@ int SymbolTable::addOrReturn( const std::string& lex )
     }
 
     Symbol s;
-    s.idx = _table.size();
+    s.idx = static_cast< int >(_table.size());
     s.lex = lex;
     _table.push_back( s );
     return s.idx;
 }
 
-inline Symbol& SymbolTable::operator[]( const unsigned idx )
+
+Symbol & SymbolTable::operator[](const unsigned int idx)
 {
     return _table[idx];
 }
 
-inline const Symbol& SymbolTable::operator[]( const unsigned idx ) const
+const Symbol & SymbolTable::operator[](const unsigned int idx) const
 {
     return _table[idx];
 }
 
-inline Symbol& SymbolTable::get( const unsigned idx)
+Symbol & SymbolTable::get(const unsigned int idx)
 {
     return _table[idx];
 }
 
-inline const Symbol& SymbolTable::get( const unsigned idx) const
+const Symbol & SymbolTable::get(const unsigned int idx) const
 {
     return _table[idx];
 }

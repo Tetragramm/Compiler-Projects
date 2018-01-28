@@ -1,41 +1,34 @@
 program example(input, output);
-var x:integer; var y: integer;
+var x:integer; var y: integer; var z: integer;
+var i:real; var j: real; var k: real;
 function gcd(a:integer; b: integer): integer;
 begin {comment test}
 	if b = 0 then gcd := a
 	else gcd := gcd(b, a mod b)
 end;
-function testMath(a:real; b: real): real;
-var testArr : array[1 .. 10] of real;
-	function testMat2:integer;
-	begin
-		blah[1] := 10;
-		testMat2 := blah[1]
-	end;
+function gcd2(a:real; b: real): real;
 begin {comment test}
-	while not b or a do
-	begin
-		b := a * 0.0E5;
-		a := a + 1;
-		testMath := a and b
-	end;
-	
-	if a = 0 then if b = 0 then a := 1 else b := 1;
-	if a = 1 then if b = 1 then a := 2 else b := 5 else a := 3;
-	if ((a = -1) and (b = +2)) then begin if b = 0 then a := 1 end else b := 1;
-	if a then begin end
+	if b = 0.0 then gcd2 := a
+	else gcd2 := gcd2(b, a mod b)
 end;
-function test:integer;
 begin
-	test:=100
-end;
-
-begin
-	in := read(x, y);
-	out := write(gcd(x, y));
-	in := -input;
-	in := in + 0.5;
-	in := +0.5;
-	in := -0.5
+	z := gcd(x, y);
+	z := z + 1;
+	z := z - 2;
+	z := -x;
+	z := x + y;
+	z := x * y;
+	z := x / y;
+	z := x div y;
+	z := x mod y;
 	
+	k := gcd2(i, j);
+	k := k + 1.1;
+	k := k - 2.2;
+	k := -i;
+	k := i + j;
+	k := i * j;
+	k := i / j;
+	k := i div j;
+	k := i mod j
 end.

@@ -196,7 +196,8 @@ void BaseParser::getLine(std::string& line)
 {
     getline(_file, line);
     _line_number++;
-    _output<<"Line Number "<<_line_number<<"\n";
+    _output<<"Line Number "<<_line_number<<" "<<line<<"\n";
+    _output.flush();
 }
 
 void BaseParser::parse()

@@ -1,6 +1,7 @@
 #include "stdafx.h"
 
 #include <cctype>
+#include <locale>
 
 #include "Machines.h"
 

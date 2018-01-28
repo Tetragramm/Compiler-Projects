@@ -1,7 +1,6 @@
 #pragma once
-#include <iostream>
 #include <vector>
-#include "Scope.h"
+#include "Enums.h"
 
 #ifndef SYMBOL_TABLE_H_
 #define SYMBOL_TABLE_H_
@@ -15,12 +14,7 @@ struct Symbol
 
 class SymbolTable
 {
-    std::vector<Symbol> _table;
 public:
-    SymbolTable()
-    {
-        std::cout<<"Constructing ST\n";
-    }
 
     int addOrReturn( const std::string& lex );
 
@@ -31,6 +25,9 @@ public:
     Symbol& get( const unsigned int idx );
 
     const Symbol& get( const unsigned int idx ) const;
+    
+private:
+    std::vector<Symbol> _table;
 };
 
 #endif

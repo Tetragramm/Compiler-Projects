@@ -2,6 +2,9 @@
 #include <memory>
 #include <fstream>
 
+#ifndef PARSER_H_
+#define PARSER_H_
+
 class Parser
 {
 public:
@@ -17,3 +20,5 @@ public:
         std::ifstream& file,
         std::ostream& output );
 };
+
+#endif

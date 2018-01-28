@@ -1,11 +1,10 @@
 #pragma once
 #include <vector>
 #include <string>
-#include <functional>
-
-#include "TokenAttr.h"
-#include "SymbolTable.h"
 #include <memory>
+
+#include "Enums.h"
+#include "SymbolTable.h"
 
 #ifndef MACHINES_H_
 #define MACHINES_H_
@@ -111,14 +110,10 @@ public:
 
 class PascalMachine : public LanguageMachine
 {
-    std::vector<std::shared_ptr<Machine>> _useful_machines;
-    std::vector<std::shared_ptr<Machine>> _space_machines;
-    int _idx;
-    std::string _line;
-    std::shared_ptr<SymbolTable> _s_table;
-
 public:
     PascalMachine( const std::vector< std::string >& reserved_words, std::shared_ptr<SymbolTable>& symbol_table);
+
+    virtual ~PascalMachine() = default;
 
     void setLine(const std::string& line) override;
 
@@ -126,6 +121,11 @@ public:
 
 private:
     TAPair clearSpace();
+    std::vector<std::shared_ptr<Machine>> _useful_machines;
+    std::vector<std::shared_ptr<Machine>> _space_machines;
+    int _idx;
+    std::string _line;
+    std::shared_ptr<SymbolTable> _s_table;
 };
 
 

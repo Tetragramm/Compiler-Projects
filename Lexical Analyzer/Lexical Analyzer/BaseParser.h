@@ -1,6 +1,5 @@
 #pragma once
 #include "Parser.h"
-#include "SymbolTable.h"
 #include "Machines.h"
 #include "Scope.h"
 

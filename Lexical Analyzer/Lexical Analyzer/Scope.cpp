@@ -1,9 +1,6 @@
 #include "stdafx.h"
 #include "Scope.h"
 
-
-DEFINE_ENUM(E_TYPE,ET_ENUM)
-
 void Scope::addVariable(const unsigned& tok, Info& type)
 {
     _map[tok] = type;
