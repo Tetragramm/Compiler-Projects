@@ -182,7 +182,7 @@ void PascalParser::program_2()
         program_3();
         return;
     }
-    
+
     _output << "Syntax Error at Line " << getLineNumber() << " in " << __FUNCTION__ << ": Expected " <<
             LexicalToken( "var", RESERVED_WORD ) << ", " <<
             LexicalToken( "function", RESERVED_WORD ) << ", " <<
@@ -210,7 +210,7 @@ void PascalParser::program_3()
         program_4();
         return;
     }
-    
+
     _output << "Syntax Error at Line " << getLineNumber() << " in " << __FUNCTION__ << ": Expected " <<
             LexicalToken( "function", RESERVED_WORD ) << ", " <<
             LexicalToken( "begin", RESERVED_WORD ) << ", " <<
@@ -976,6 +976,7 @@ void PascalParser::statement()
 {
     //_output<<"statement -> ";
     //variable assignop expression | compound_statement | if expression then statement statement_2 | while expression do statement
+    const int ln = getLineNumber();
     if ( check( ID ) )
     {
         //_output<<"variable assignop expression\n";
@@ -983,8 +984,8 @@ void PascalParser::statement()
         if ( match( ASSIGN_OP, __FUNCTION__ ) )
         {
             const Exp_Ext exp = expression();
-            if ( var.type != exp.info.type && var.type != T_ERROR && exp.info.type != T_ERROR)
-                _output << "Type Error at Line " << getLineNumber() << " in " << __FUNCTION__
+            if ( var.type != exp.info.type && var.type != T_ERROR && exp.info.type != T_ERROR )
+                _output << "Type Error at Line " << ln << " in " << __FUNCTION__
                         << ": Type Mismatch between " << getString( var.type ) << " and " << getString( exp.info.type )
                         << "\n";
             return;
@@ -1002,8 +1003,8 @@ void PascalParser::statement()
         if ( match( LexicalToken( "if", RESERVED_WORD ), __FUNCTION__ ) )
         {
             const Exp_Ext exp = expression();
-            if ( exp.info.type != T_BOOLEAN )
-                _output << "Type Error at Line " << getLineNumber() << " in " << __FUNCTION__
+            if ( exp.info.type != T_BOOLEAN && exp.info.type != T_ERROR )
+                _output << "Type Error at Line " << ln << " in " << __FUNCTION__
                         << ": If conditions require T_BOOLEAN but found " << getString( exp.info.type ) << "\n";
 
             if ( match( LexicalToken( "then", RESERVED_WORD ), __FUNCTION__ ) )
@@ -1020,8 +1021,8 @@ void PascalParser::statement()
         if ( match( LexicalToken( "while", RESERVED_WORD ), __FUNCTION__ ) )
         {
             const Exp_Ext exp = expression();
-            if ( exp.info.type != T_BOOLEAN )
-                _output << "Type Error at Line " << getLineNumber() << " in " << __FUNCTION__
+            if ( exp.info.type != T_BOOLEAN && exp.info.type != T_ERROR )
+                _output << "Type Error at Line " << ln << " in " << __FUNCTION__
                         << ": While loop conditions require T_BOOLEAN but found " << getString( exp.info.type ) << "\n";
 
             if ( match( LexicalToken( "do", RESERVED_WORD ), __FUNCTION__ ) )
@@ -1033,7 +1034,7 @@ void PascalParser::statement()
     }
     else
     {
-        _output << "Syntax Error at Line " << getLineNumber() << " in " << __FUNCTION__ << ": Expected " <<
+        _output << "Syntax Error at Line " << ln << " in " << __FUNCTION__ << ": Expected " <<
                 ID << ", " <<
                 LexicalToken( "begin", RESERVED_WORD ) << ", " <<
                 LexicalToken( "if", RESERVED_WORD ) << ", " <<
@@ -1235,9 +1236,10 @@ PascalParser::Exp_Ext PascalParser::expression_2( Exp_Ext& intr )
             const Exp_Ext rhs = simple_expression();
             if ( intr.info.type != rhs.info.type )
             {
-                if(intr.info.type != T_ERROR && rhs.info.type != T_ERROR)
+                if ( intr.info.type != T_ERROR && rhs.info.type != T_ERROR )
                     _output << "Type Error at Line " << getLineNumber() << " in " << __FUNCTION__
-                            << ": Cannot Compare " << getString( intr.info.type ) << " and " << getString( rhs.info.type )
+                            << ": Cannot Compare " << getString( intr.info.type ) << " and " <<
+                            getString( rhs.info.type )
                             << "\n";
                 ext.info.type = T_ERROR;
             }
@@ -1348,6 +1350,17 @@ PascalParser::Exp_Ext PascalParser::simple_expression_2( Exp_Ext& intr )
     //addop term simple_expression_2 | \epsilon
     if ( check( ADD_OP ) )
     {
+        const int ln = getLineNumber();
+        if ( check( LexicalToken( "or", ADD_OP ) ) && intr.info.type != T_BOOLEAN )
+        {
+            _output << "Type Error at Line " << ln << " in " << __FUNCTION__
+                    << ": or operation requires T_BOOL but found " << getString( intr.info.type ) << ".\n";
+            match( ADD_OP, __FUNCTION__ );
+            term();
+            simple_expression_2( intr );
+            ext.info.type = T_ERROR;
+            return ext;
+        }
         //_output<<"addop term simple_expression_2\n";
         if ( match( ADD_OP, __FUNCTION__ ) )
         {
@@ -1360,7 +1373,7 @@ PascalParser::Exp_Ext PascalParser::simple_expression_2( Exp_Ext& intr )
             else
             {
                 se_intr.info.type = T_ERROR;
-                if(intr.info.type != T_ERROR && term_ext.info.type != T_ERROR)
+                if ( intr.info.type != T_ERROR && term_ext.info.type != T_ERROR )
                     _output << "Type Error at Line " << getLineNumber() << " in " << __FUNCTION__
                             << ": Type Mismatch between " << getString( intr.info.type ) << " and " <<
                             getString( term_ext.info.type ) << "\n";
@@ -1482,6 +1495,16 @@ PascalParser::Exp_Ext PascalParser::term_2( Type_Ext intr )
     //mulop factor term_2 | \epsilon
     if ( check( MUL_OP ) )
     {
+        const int ln = getLineNumber();
+        if ( check( LexicalToken( "and", MUL_OP ) ) && var.type != T_BOOLEAN )
+        {
+            _output << "Type Error at Line " << ln << " in " << __FUNCTION__
+                    << ": and operation requires T_BOOL but found " << getString( var.type ) << ".\n";
+            match( MUL_OP, __FUNCTION__ );
+            term_2( factor() );
+            ext.info.type = T_ERROR;
+            return ext;
+        }
         //_output<<"mulop factor term_2\n";
         if ( match( MUL_OP, __FUNCTION__ ) )
         {
@@ -1495,8 +1518,8 @@ PascalParser::Exp_Ext PascalParser::term_2( Type_Ext intr )
             else
             {
                 ext.info.type = T_ERROR;
-                if(t2_ext.info.type != T_ERROR && var.type != T_ERROR)
-                    _output << "Type Error at Line " << getLineNumber() << " in " << __FUNCTION__
+                if ( t2_ext.info.type != T_ERROR && var.type != T_ERROR )
+                    _output << "Type Error at Line " << ln << " in " << __FUNCTION__
                             << ": Type Mismatch between " << getString( var.type ) << " and " <<
                             getString( t2_ext.info.type ) << "\n";
             }
@@ -1764,51 +1787,46 @@ PascalParser::Type_Ext PascalParser::factor()
             return ext;
         }
     }
-    else if ( check( LexicalToken( "(", SYMBOL ) ) )
+    else if ( check( LexicalToken( "(", SYMBOL ) ) && match( LexicalToken( "(", SYMBOL ), __FUNCTION__ ) )
     {
         //_output<<"( expression )\n";
-        if ( match( LexicalToken( "(", SYMBOL ), __FUNCTION__ ) )
+        Exp_Ext expr = expression();
+        if ( match( LexicalToken( ")", SYMBOL ), __FUNCTION__ ) )
         {
-            Exp_Ext expr = expression();
-            if ( match( LexicalToken( ")", SYMBOL ), __FUNCTION__ ) )
-            {
-                ext.info = expr.info;
-                return ext;
-            }
-        }
-    }
-    else if ( check( LexicalToken( "not", REL_OP ) ) )
-    {
-        //_output<<"not factor\n";
-        if ( match( LexicalToken( "not", REL_OP ), __FUNCTION__ ) )
-        {
-            const int ln = getLineNumber();
-            Type_Ext fac = factor();
-            if ( holds_alternative< VarInfo >( fac.info ) )
-            {
-                const VarInfo v = get< VarInfo >( fac.info );
-                if ( v.type == T_BOOLEAN )
-                {
-                    ext.info = fac.info;
-                }
-                else
-                {
-                    _output << "Type Error at line " << ln << " in " << __FUNCTION__ << ": "
-                            << "REL_OP not requires T_BOOLEAN but found " << v.type << ".\n";
-                }
-            }
-            else if ( holds_alternative< ArrayInfo >( fac.info ) )
-            {
-                _output << "Type Error at line " << ln << " in " << __FUNCTION__ << ": "
-                        << "REL_OP not requires T_BOOLEAN but found an array.\n";
-            }
-            else if ( holds_alternative< FuncInfo >( fac.info ) )
-            {
-                _output << "Type Error at line " << ln << " in " << __FUNCTION__ << ": "
-                        << "REL_OP not requires T_BOOLEAN but found a function.\n";
-            }
+            ext.info = expr.info;
             return ext;
         }
+    }
+    else if ( check( LexicalToken( "not", REL_OP ) ) && match( LexicalToken( "not", REL_OP ), __FUNCTION__ ) )
+    {
+        //_output<<"not factor\n";
+        const int ln = getLineNumber();
+        Type_Ext fac = factor();
+        ext.info = VarInfo( T_ERROR );
+        if ( holds_alternative< VarInfo >( fac.info ) )
+        {
+            const VarInfo v = get< VarInfo >( fac.info );
+            if ( v.type == T_BOOLEAN )
+            {
+                ext.info = fac.info;
+            }
+            else
+            {
+                _output << "Type Error at line " << ln << " in " << __FUNCTION__ << ": "
+                        << "REL_OP not requires T_BOOLEAN but found " << getString( v.type ) << ".\n";
+            }
+        }
+        else if ( holds_alternative< ArrayInfo >( fac.info ) )
+        {
+            _output << "Type Error at line " << ln << " in " << __FUNCTION__ << ": "
+                    << "REL_OP not requires T_BOOLEAN but found an array.\n";
+        }
+        else if ( holds_alternative< FuncInfo >( fac.info ) )
+        {
+            _output << "Type Error at line " << ln << " in " << __FUNCTION__ << ": "
+                    << "REL_OP not requires T_BOOLEAN but found a function.\n";
+        }
+        return ext;
     }
     else
     {

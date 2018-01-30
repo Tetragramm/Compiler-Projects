@@ -13,7 +13,7 @@ int main()
     using namespace std;
     
 
-    vector<string> file_names{"TestPascal"};
+    vector<string> file_names{"TestPascal", "TestErrorsA", "TestErrorsB", "TestErrorsC", "TestErrorsD"};
 
     for(string& file : file_names)
     {
