@@ -1,10 +1,20 @@
 #include "stdafx.h"
+
 #include "Parser.h"
 #include "Machines.h"
 #include "BaseParser.h"
 #include "Scope.h"
 
-using namespace std;
+using std::ifstream;
+using std::string;
+using std::make_shared;
+using std::variant;
+using std::vector;
+using std::monostate;
+using std::holds_alternative;
+using std::get;
+using std::get_if;
+using std::shared_ptr;
 
 #define EOF_TOK LexicalToken("", TAPair(END_OF_FILE,NONE))
 
@@ -35,11 +45,9 @@ public:
 
 private:
 
-    typedef variant< VarInfo, ArrayInfo > ParInfo;
-
     struct Type_Ext
     {
-        Info info;
+        ParInfo info;
     };
 
     struct Standard_Type_Ext
@@ -64,7 +72,7 @@ private:
 
     struct Exp_Ext
     {
-        VarInfo info;
+        ParInfo info;
     };
 
     void program();
@@ -84,7 +92,14 @@ private:
     void subprogram_declaration();
     void subprogram_declaration_2();
     void subprogram_declaration_3();
-    void subprogram_head();
+
+    struct Sub_Head_Ext
+    {
+        unsigned int id{};
+        FuncInfo info;
+    };
+
+    Sub_Head_Ext subprogram_head();
     SP_Head_Ext subprogram_head_2();
     void optional_statements();
     Arg_Ext arguments();
@@ -101,24 +116,18 @@ private:
     Exp_Ext simple_expression();
     Exp_Ext simple_expression_2( Exp_Ext& intr );
     Exp_Ext term();
-    Exp_Ext term_2( Type_Ext intr );
+    Exp_Ext term_2( Exp_Ext intr );
     void sign();
     bool checkParameters( vector< ParInfo >& actual, vector< ParInfo >& found ) const;
 
-    Type_Ext factor();
+    Exp_Ext factor();
 
-    struct Fac_2_Ext
-    {
-        variant< monostate, vector< ParInfo >, VarInfo > type;
-    };
+    typedef vector<ParInfo> Exp_List_Ext;
 
-    Type_Ext factor_prod_1( const unsigned id_idx );
+    typedef variant<monostate,Exp_List_Ext,VarInfo> Fac_2_Ext;
+
+    Exp_Ext factor_prod_1( unsigned id_idx );
     Fac_2_Ext factor_2();
-
-    struct Exp_List_Ext
-    {
-        vector< ParInfo > list;
-    };
 
     Exp_List_Ext expression_list();
     Exp_List_Ext expression_list_2();
@@ -131,15 +140,16 @@ void PascalParser::parse()
     _tok = getToken();
     program();
     match( END_OF_FILE, __FUNCTION__ );
+    _scope->print( *_memory_stream, *_table );
 }
 
 void PascalParser::program()
 {
-    _scope = make_shared< Scope >();
+    _scope = make_shared< Scope >( "Program Scope" );
     //_output<<"Program -> program id ( identifier_list ) ; program_2\n";
-    if ( check( LexicalToken( "program", RESERVED_WORD ) ) )
+    if ( check( LexicalToken( "program", RESERVED ) ) )
     {
-        if ( match( LexicalToken( "program", RESERVED_WORD ), __FUNCTION__ )
+        if ( match( LexicalToken( "program", RESERVED ), __FUNCTION__ )
              && match( ID, __FUNCTION__ )
              && match( LexicalToken( "(", SYMBOL ), __FUNCTION__ ) )
         {
@@ -156,7 +166,7 @@ void PascalParser::program()
     else
     {
         _output << "Syntax Error at Line " << getLineNumber() << " in " << __FUNCTION__ << ": Expected " <<
-                LexicalToken( "program", RESERVED_WORD ) << ", " <<
+                LexicalToken( "program", RESERVED ) << ", " <<
                 "but found " << _tok << "\n";
     }
 
@@ -168,15 +178,15 @@ void PascalParser::program()
 void PascalParser::program_2()
 {
     //_output<<"program_2 -> ";
-    if ( check( LexicalToken( "var", RESERVED_WORD ) ) )
+    if ( check( LexicalToken( "var", RESERVED ) ) )
     {
         //_output<<"declarations \\n program_3 \n";
         declarations();
         program_3();
         return;
     }
-    if ( check( LexicalToken( "function", RESERVED_WORD ) )
-         || check( LexicalToken( "begin", RESERVED_WORD ) ) )
+    if ( check( LexicalToken( "function", RESERVED ) )
+         || check( LexicalToken( "begin", RESERVED ) ) )
     {
         //_output<<"program_3\n";
         program_3();
@@ -184,9 +194,9 @@ void PascalParser::program_2()
     }
 
     _output << "Syntax Error at Line " << getLineNumber() << " in " << __FUNCTION__ << ": Expected " <<
-            LexicalToken( "var", RESERVED_WORD ) << ", " <<
-            LexicalToken( "function", RESERVED_WORD ) << ", " <<
-            LexicalToken( "begin", RESERVED_WORD ) << ", " <<
+            LexicalToken( "var", RESERVED ) << ", " <<
+            LexicalToken( "function", RESERVED ) << ", " <<
+            LexicalToken( "begin", RESERVED ) << ", " <<
             "but found " << _tok << "\n";
 
     synch( {
@@ -197,14 +207,14 @@ void PascalParser::program_2()
 void PascalParser::program_3()
 {
     //_output<<"program_3 -> ";
-    if ( check( LexicalToken( "function", RESERVED_WORD ) ) )
+    if ( check( LexicalToken( "function", RESERVED ) ) )
     {
         //_output<<"subprogram_declarations \\n program_4\n";
         subprogram_declarations();
         program_4();
         return;
     }
-    if ( check( LexicalToken( "begin", RESERVED_WORD ) ) )
+    if ( check( LexicalToken( "begin", RESERVED ) ) )
     {
         //_output<<"program_4\n";
         program_4();
@@ -212,8 +222,8 @@ void PascalParser::program_3()
     }
 
     _output << "Syntax Error at Line " << getLineNumber() << " in " << __FUNCTION__ << ": Expected " <<
-            LexicalToken( "function", RESERVED_WORD ) << ", " <<
-            LexicalToken( "begin", RESERVED_WORD ) << ", " <<
+            LexicalToken( "function", RESERVED ) << ", " <<
+            LexicalToken( "begin", RESERVED ) << ", " <<
             "but found " << _tok << "\n";
 
     synch( {
@@ -224,7 +234,7 @@ void PascalParser::program_3()
 void PascalParser::program_4()
 {
     //_output<<"program_4 -> ";
-    if ( check( LexicalToken( "begin", RESERVED_WORD ) ) )
+    if ( check( LexicalToken( "begin", RESERVED ) ) )
     {
         //_output<<"compound_statement \\n .\n";
         compound_statement();
@@ -236,7 +246,7 @@ void PascalParser::program_4()
     else
     {
         _output << "Syntax Error at Line " << getLineNumber() << " in " << __FUNCTION__ << ": Expected " <<
-                LexicalToken( "begin", RESERVED_WORD ) << ", " <<
+                LexicalToken( "begin", RESERVED ) << ", " <<
                 "but found " << _tok << "\n";
     }
 
@@ -303,19 +313,29 @@ void PascalParser::identifier_list_2()
 
 void PascalParser::declarations()
 {
-    if ( check( LexicalToken( "var", RESERVED_WORD ) ) )
+    if ( check( LexicalToken( "var", RESERVED ) ) )
     {
         unsigned id;
+        auto ln = getLineNumber();
         //_output<<"declarations -> var id : info ; declarations_2\n";
-        if ( match( LexicalToken( "var", RESERVED_WORD ), __FUNCTION__ )
+        if ( match( LexicalToken( "var", RESERVED ), __FUNCTION__ )
              && getIdSymbol( id, __FUNCTION__ )
              && match( LexicalToken( ":", SYMBOL ), __FUNCTION__ ) )
         {
             Type_Ext type_ext = type();
             if ( match( LexicalToken( ";", SYMBOL ), __FUNCTION__ ) )
             {
+                if( const auto errq = get_if<VarInfo>(&type_ext.info))
+                {
+                    if(errq->type == T_ERROR)
+                        type_ext.info = VarInfo(T_ERROR);
+                }
+
+                if(!_scope->addVariable( id, type_ext.info ))
+                {
+                    _output << "Re-declaring variable "<<_table->get( id).lex<< " at line "<< ln << " in " <<__FUNCTION__<<"\n";
+                }
                 declarations_2();
-                _scope->addVariable( id, type_ext.info );
                 //var id : info ; declarations_2
                 return;
             }
@@ -331,44 +351,44 @@ void PascalParser::declarations()
 
     synch( {
         EOF_TOK,
-        LexicalToken( "function", RESERVED_WORD ),
-        LexicalToken( "begin", RESERVED_WORD ),
+        LexicalToken( "function", RESERVED ),
+        LexicalToken( "begin", RESERVED ),
     } );
 }
 
 void PascalParser::declarations_2()
 {
     //_output<<"declarations_2 -> ";
-    if ( check( LexicalToken( "var", RESERVED_WORD ) ) )
+    if ( check( LexicalToken( "var", RESERVED ) ) )
     {
         //_output<<"declarations\n";
         declarations();
         return;
     }
-    if ( check( LexicalToken( "function", RESERVED_WORD ) )
-         || check( LexicalToken( "begin", RESERVED_WORD ) ) )
+    if ( check( LexicalToken( "function", RESERVED ) )
+         || check( LexicalToken( "begin", RESERVED ) ) )
     {
         //_output<<"epsilon\n";
         return;
     }
 
     _output << "Syntax Error at Line " << getLineNumber() << " in " << __FUNCTION__ << ": Expected " <<
-            LexicalToken( "var", RESERVED_WORD ) << ", " <<
-            LexicalToken( "function", RESERVED_WORD ) << ", " <<
-            LexicalToken( "begin", RESERVED_WORD ) << ", " <<
+            LexicalToken( "var", RESERVED ) << ", " <<
+            LexicalToken( "function", RESERVED ) << ", " <<
+            LexicalToken( "begin", RESERVED ) << ", " <<
             "but found " << _tok << "\n";
 
     synch( {
         EOF_TOK,
-        LexicalToken( "function", RESERVED_WORD ),
-        LexicalToken( "begin", RESERVED_WORD ),
+        LexicalToken( "function", RESERVED ),
+        LexicalToken( "begin", RESERVED ),
     } );
 }
 
 void PascalParser::subprogram_declarations()
 {
     //_output<<"subprogram_declarations -> subprogram_declaration ; subprogram_declarations_2\n";
-    if ( check( LexicalToken( "function", RESERVED_WORD ) ) )
+    if ( check( LexicalToken( "function", RESERVED ) ) )
     {
         //subprogram_declaration ; subprogram_declarations_2
         subprogram_declaration();
@@ -381,48 +401,48 @@ void PascalParser::subprogram_declarations()
     else
     {
         _output << "Syntax Error at Line " << getLineNumber() << " in " << __FUNCTION__ << ": Expected " <<
-                LexicalToken( "function", RESERVED_WORD ) << ", " <<
+                LexicalToken( "function", RESERVED ) << ", " <<
                 "but found " << _tok << "\n";
     }
 
     synch( {
         EOF_TOK,
-        LexicalToken( "begin", RESERVED_WORD ),
+        LexicalToken( "begin", RESERVED ),
     } );
 }
 
 void PascalParser::subprogram_declarations_2()
 {
     //_output<<"subprogram_declarations_2 -> ";
-    if ( check( LexicalToken( "function", RESERVED_WORD ) ) )
+    if ( check( LexicalToken( "function", RESERVED ) ) )
     {
         //_output<<"subprogram_declarations\n";
         subprogram_declarations();
         return;
     }
-    if ( check( LexicalToken( "begin", RESERVED_WORD ) ) )
+    if ( check( LexicalToken( "begin", RESERVED ) ) )
     {
         //_output<<"epsilon\n";
         return;
     }
 
     _output << "Syntax Error at Line " << getLineNumber() << " in " << __FUNCTION__ << ": Expected " <<
-            LexicalToken( "function", RESERVED_WORD ) << ", " <<
-            LexicalToken( "begin", RESERVED_WORD ) << ", " <<
+            LexicalToken( "function", RESERVED ) << ", " <<
+            LexicalToken( "begin", RESERVED ) << ", " <<
             "but found " << _tok << "\n";
 
     synch( {
         EOF_TOK,
-        LexicalToken( "begin", RESERVED_WORD ),
+        LexicalToken( "begin", RESERVED ),
     } );
 }
 
 void PascalParser::compound_statement()
 {
     //_output<<"compound_statement -> begin \\n compound_statement_2 \n";
-    if ( check( LexicalToken( "begin", RESERVED_WORD ) ) )
+    if ( check( LexicalToken( "begin", RESERVED ) ) )
     {
-        if ( match( LexicalToken( "begin", RESERVED_WORD ), __FUNCTION__ ) )
+        if ( match( LexicalToken( "begin", RESERVED ), __FUNCTION__ ) )
         {
             compound_statement_2();
             return;
@@ -431,16 +451,16 @@ void PascalParser::compound_statement()
     else
     {
         _output << "Syntax Error at Line " << getLineNumber() << " in " << __FUNCTION__ << ": Expected " <<
-                LexicalToken( "begin", RESERVED_WORD ) << ", " <<
+                LexicalToken( "begin", RESERVED ) << ", " <<
                 "but found " << _tok << "\n";
     }
 
     synch( {
         EOF_TOK,
         LexicalToken( ";", SYMBOL ),
-        LexicalToken( "end", RESERVED_WORD ),
+        LexicalToken( "end", RESERVED ),
         LexicalToken( ".", SYMBOL ),
-        LexicalToken( "else", RESERVED_WORD ),
+        LexicalToken( "else", RESERVED ),
     } );
 }
 
@@ -449,18 +469,18 @@ void PascalParser::compound_statement_2()
     //_output<<"compound_statement_2 -> ";
     //optional_statements \n end | \n end
     if ( check( ID )
-         || check( LexicalToken( "begin", RESERVED_WORD ) )
-         || check( LexicalToken( "if", RESERVED_WORD ) )
-         || check( LexicalToken( "while", RESERVED_WORD ) ) )
+         || check( LexicalToken( "begin", RESERVED ) )
+         || check( LexicalToken( "if", RESERVED ) )
+         || check( LexicalToken( "while", RESERVED ) ) )
     {
         //_output<<"optional_statements \\n end\n";
         optional_statements();
-        if ( match( LexicalToken( "end", RESERVED_WORD ), __FUNCTION__ ) )
+        if ( match( LexicalToken( "end", RESERVED ), __FUNCTION__ ) )
         {
             return;
         }
     }
-    else if ( match( LexicalToken( "end", RESERVED_WORD ), __FUNCTION__ ) )
+    else if ( match( LexicalToken( "end", RESERVED ), __FUNCTION__ ) )
     {
         //_output<<"\\n end\n";
         return;
@@ -469,18 +489,18 @@ void PascalParser::compound_statement_2()
     {
         _output << "Syntax Error at Line " << getLineNumber() << " in " << __FUNCTION__ << ": Expected " <<
                 ID << ", " <<
-                LexicalToken( "begin", RESERVED_WORD ) << ", " <<
-                LexicalToken( "if", RESERVED_WORD ) << ", " <<
-                LexicalToken( "while", RESERVED_WORD ) << ", " <<
-                LexicalToken( "end", RESERVED_WORD ) << ", " <<
+                LexicalToken( "begin", RESERVED ) << ", " <<
+                LexicalToken( "if", RESERVED ) << ", " <<
+                LexicalToken( "while", RESERVED ) << ", " <<
+                LexicalToken( "end", RESERVED ) << ", " <<
                 "but found " << _tok << "\n";
     }
     synch( {
         EOF_TOK,
         LexicalToken( ";", SYMBOL ),
-        LexicalToken( "end", RESERVED_WORD ),
+        LexicalToken( "end", RESERVED ),
         LexicalToken( ".", SYMBOL ),
-        LexicalToken( "else", RESERVED_WORD ),
+        LexicalToken( "else", RESERVED ),
     } );
 }
 
@@ -497,18 +517,18 @@ PascalParser::Type_Ext PascalParser::type()
         ext.info = VarInfo( st_ext.type );
         return ext;
     }
-    if ( check( LexicalToken( "array", RESERVED_WORD ) ) )
+    if ( check( LexicalToken( "array", RESERVED ) ) )
     {
         ArrayInfo info;
         int start, stop;
-        if ( match( LexicalToken( "array", RESERVED_WORD ), __FUNCTION__ )
+        if ( match( LexicalToken( "array", RESERVED ), __FUNCTION__ )
              && match( LexicalToken( "[", SYMBOL ), __FUNCTION__ )
              && getNum( start, __FUNCTION__ )
              && match( LexicalToken( ".", SYMBOL ), __FUNCTION__ )
              && match( LexicalToken( ".", SYMBOL ), __FUNCTION__ )
              && getNum( stop, __FUNCTION__ )
              && match( LexicalToken( "]", SYMBOL ), __FUNCTION__ )
-             && match( LexicalToken( "of", RESERVED_WORD ), __FUNCTION__ ) )
+             && match( LexicalToken( "of", RESERVED ), __FUNCTION__ ) )
         {
             const Standard_Type_Ext st_ext = standard_type();
             //_output<<"array [ num .. num ] of standard_type\n";
@@ -524,7 +544,7 @@ PascalParser::Type_Ext PascalParser::type()
         _output << "Syntax Error at Line " << getLineNumber() << " in " << __FUNCTION__ << ": Expected " <<
                 LexicalToken( "integer", TYPE ) << ", " <<
                 LexicalToken( "real", TYPE ) << ", " <<
-                LexicalToken( "array", RESERVED_WORD ) << ", " <<
+                LexicalToken( "array", RESERVED ) << ", " <<
                 "but found " << _tok << "\n";
     }
 
@@ -539,7 +559,7 @@ PascalParser::Type_Ext PascalParser::type()
 
 PascalParser::Standard_Type_Ext PascalParser::standard_type()
 {
-    Standard_Type_Ext ext;
+    Standard_Type_Ext ext{T_ERROR};
     //_output<<"standard_type -> ";
     //integer | real
     if ( check( LexicalToken( "integer", TYPE ) ) )
@@ -573,7 +593,6 @@ PascalParser::Standard_Type_Ext PascalParser::standard_type()
         LexicalToken( ";", SYMBOL ),
         LexicalToken( ")", SYMBOL ),
     } );
-    ext.type = T_ERROR;
     return ext;
 }
 
@@ -581,18 +600,28 @@ void PascalParser::subprogram_declaration()
 {
     //_output<<"subprogram_declaration -> ";
     //subprogram_head subprogram_declaration_2
-    if ( check( LexicalToken( "function", RESERVED_WORD ) ) )
+    if ( check( LexicalToken( "function", RESERVED ) ) )
     {
         //_output<<"subprogram_head subprogram_declaration_2\n";
-        subprogram_head();
-        _scope = _scope->newScope();
+        auto ln = getLineNumber();
+        _scope = _scope->newScope( "Temp Scope" );
+        const Sub_Head_Ext head = subprogram_head();
+        _scope->setName(_table->get( head.id ).lex + " Scope");
         subprogram_declaration_2();
+        if(!_scope->getParent()->addVariable( head.id, head.info ))
+        {
+            _output << "Re-declaring function "<<_table->get( head.id ).lex<< " at line "<< ln << " in " <<__FUNCTION__<<"\n";
+        }
+        else
+        {
+            _scope->print( *_memory_stream, *_table );
+        }
         _scope = _scope->getParent();
         return;
     }
 
     _output << "Syntax Error at Line " << getLineNumber() << " in " << __FUNCTION__ << ": Expected " <<
-            LexicalToken( "function", RESERVED_WORD ) << ", " <<
+            LexicalToken( "function", RESERVED ) << ", " <<
             "but found " << _tok << "\n";
 
     synch( {
@@ -605,15 +634,15 @@ void PascalParser::subprogram_declaration_2()
 {
     //_output<<"subprogram_declaration_2 -> ";
     //declarations subprogram_declaration_3 | subprogram_declaration_3
-    if ( check( LexicalToken( "var", RESERVED_WORD ) ) )
+    if ( check( LexicalToken( "var", RESERVED ) ) )
     {
         //_output<<"declarations subprogram_declaration_3\n";
         declarations();
         subprogram_declaration_3();
         return;
     }
-    if ( check( LexicalToken( "begin", RESERVED_WORD ) )
-         || check( LexicalToken( "function", RESERVED_WORD ) ) )
+    if ( check( LexicalToken( "begin", RESERVED ) )
+         || check( LexicalToken( "function", RESERVED ) ) )
     {
         //_output<<"subprogram_declaration_3\n";
         subprogram_declaration_3();
@@ -621,9 +650,9 @@ void PascalParser::subprogram_declaration_2()
     }
 
     _output << "Syntax Error at Line " << getLineNumber() << " in " << __FUNCTION__ << ": Expected " <<
-            LexicalToken( "var", RESERVED_WORD ) << ", " <<
-            LexicalToken( "begin", RESERVED_WORD ) << ", " <<
-            LexicalToken( "function", RESERVED_WORD ) << ", " <<
+            LexicalToken( "var", RESERVED ) << ", " <<
+            LexicalToken( "begin", RESERVED ) << ", " <<
+            LexicalToken( "function", RESERVED ) << ", " <<
             "but found " << _tok << "\n";
 
     synch( {
@@ -636,14 +665,14 @@ void PascalParser::subprogram_declaration_3()
 {
     //_output<<"subprogram_declaration_3 -> ";
     //subprogram_declarations compound_statement | compound_statement
-    if ( check( LexicalToken( "begin", RESERVED_WORD ) ) )
+    if ( check( LexicalToken( "begin", RESERVED ) ) )
     {
         //_output<<"compound_statement\n";
         compound_statement();
         return;
     }
 
-    if ( check( LexicalToken( "function", RESERVED_WORD ) ) )
+    if ( check( LexicalToken( "function", RESERVED ) ) )
     {
         //_output<<"subprogram_declarations compound_statement\n";
         subprogram_declarations();
@@ -652,8 +681,8 @@ void PascalParser::subprogram_declaration_3()
     }
 
     _output << "Syntax Error at Line " << getLineNumber() << " in " << __FUNCTION__ << ": Expected " <<
-            LexicalToken( "begin", RESERVED_WORD ) << ", " <<
-            LexicalToken( "function", RESERVED_WORD ) << ", " <<
+            LexicalToken( "begin", RESERVED ) << ", " <<
+            LexicalToken( "function", RESERVED ) << ", " <<
             "but found " << _tok << "\n";
 
     synch( {
@@ -662,34 +691,44 @@ void PascalParser::subprogram_declaration_3()
     } );
 }
 
-void PascalParser::subprogram_head()
+PascalParser::Sub_Head_Ext PascalParser::subprogram_head()
 {
-    if ( check( LexicalToken( "function", RESERVED_WORD ) ) )
+    Sub_Head_Ext ext;
+    if ( check( LexicalToken( "function", RESERVED ) ) )
     {
         //_output<<"subprogram_head -> function id subprogram_head_2\n";
         unsigned id;
-        if ( match( LexicalToken( "function", RESERVED_WORD ), __FUNCTION__ )
+        if ( match( LexicalToken( "function", RESERVED ), __FUNCTION__ )
              && getIdSymbol( id, __FUNCTION__ ) )
         {
+            auto ln = getLineNumber();
             SP_Head_Ext sp2_ext = subprogram_head_2();
-            Info f_info = sp2_ext.f_info;
-            _scope->addVariable( id, f_info );
-            return;
+            const Info f_info = sp2_ext.f_info;
+            if(!_scope->addVariable( id, f_info ))
+            {
+                _output << "Re-declaring function "<<_table->get( id).lex<< " at line "<< ln << " in " <<__FUNCTION__<<"\n";
+            }
+            ext.info = sp2_ext.f_info;
+            ext.id = id;
+            return ext;
         }
     }
     else
     {
         _output << "Syntax Error at Line " << getLineNumber() << " in " << __FUNCTION__ << ": Expected " <<
-                LexicalToken( "function", RESERVED_WORD ) << ", " <<
+                LexicalToken( "function", RESERVED ) << ", " <<
                 "but found " << _tok << "\n";
     }
 
     synch( {
         EOF_TOK,
-        LexicalToken( "var", RESERVED_WORD ),
-        LexicalToken( "function", RESERVED_WORD ),
-        LexicalToken( "begin", RESERVED_WORD ),
+        LexicalToken( "var", RESERVED ),
+        LexicalToken( "function", RESERVED ),
+        LexicalToken( "begin", RESERVED ),
     } );
+    ext.id = 999;
+    ext.info = FuncInfo();
+    return ext;
 }
 
 PascalParser::SP_Head_Ext PascalParser::subprogram_head_2()
@@ -701,12 +740,30 @@ PascalParser::SP_Head_Ext PascalParser::subprogram_head_2()
     {
         //_output<<"arguments : standard_type ;\n";
         const Arg_Ext args = arguments();
+        bool isErr = false;
+        for(auto& arg : args.list)
+        {
+            if( const auto var = get_if<VarInfo>(&arg))
+            {
+                if(var->type == T_ERROR)
+                    isErr = true;
+            }
+            else if( const auto arr = get_if<ArrayInfo>(&arg))
+            {
+                if(arr->type == T_ERROR)
+                    isErr = true;
+            }
+        }
+
         if ( match( LexicalToken( ":", SYMBOL ), __FUNCTION__ ) )
         {
             const Standard_Type_Ext st_ext = standard_type();
             if ( match( LexicalToken( ";", SYMBOL ), __FUNCTION__ ) )
             {
-                ext.f_info.type = st_ext.type;
+                if(!isErr)
+                    ext.f_info.type = st_ext.type;
+                else
+                    ext.f_info.type = T_ERROR;
                 ext.f_info.parameters = args.list;
                 return ext;
             }
@@ -729,15 +786,14 @@ PascalParser::SP_Head_Ext PascalParser::subprogram_head_2()
     {
         _output << "Syntax Error at Line " << getLineNumber() << " in " << __FUNCTION__ << ": Expected " <<
                 LexicalToken( "(", SYMBOL ) << ", " <<
-                LexicalToken( ":", SYMBOL ) << ", " <<
                 "but found " << _tok << "\n";
     }
 
     synch( {
         EOF_TOK,
-        LexicalToken( "var", RESERVED_WORD ),
-        LexicalToken( "function", RESERVED_WORD ),
-        LexicalToken( "begin", RESERVED_WORD ),
+        LexicalToken( "var", RESERVED ),
+        LexicalToken( "function", RESERVED ),
+        LexicalToken( "begin", RESERVED ),
     } );
     ext.f_info.type = T_ERROR;
     const ParInfo err = VarInfo( T_ERROR );
@@ -749,23 +805,23 @@ void PascalParser::optional_statements()
 {
     //_output<<"optional_statements -> statement_list\n";
     if ( check( ID )
-         || check( LexicalToken( "begin", RESERVED_WORD ) )
-         || check( LexicalToken( "if", RESERVED_WORD ) )
-         || check( LexicalToken( "while", RESERVED_WORD ) ) )
+         || check( LexicalToken( "begin", RESERVED ) )
+         || check( LexicalToken( "if", RESERVED ) )
+         || check( LexicalToken( "while", RESERVED ) ) )
     {
         statement_list();
         return;
     }
     _output << "Syntax Error at Line " << getLineNumber() << " in " << __FUNCTION__ << ": Expected " <<
             ID << ", " <<
-            LexicalToken( "begin", RESERVED_WORD ) << ", " <<
-            LexicalToken( "if", RESERVED_WORD ) << ", " <<
-            LexicalToken( "while", RESERVED_WORD ) << ", " <<
+            LexicalToken( "begin", RESERVED ) << ", " <<
+            LexicalToken( "if", RESERVED ) << ", " <<
+            LexicalToken( "while", RESERVED ) << ", " <<
             "but found " << _tok << "\n";
 
     synch( {
         EOF_TOK,
-        LexicalToken( "end", RESERVED_WORD ),
+        LexicalToken( "end", RESERVED ),
     } );
 }
 
@@ -794,7 +850,7 @@ PascalParser::Arg_Ext PascalParser::arguments()
 
     synch( {
         EOF_TOK,
-        LexicalToken( "end", RESERVED_WORD ),
+        LexicalToken( "end", RESERVED ),
     } );
     const ParInfo err = VarInfo( T_ERROR );
     ext.list.push_back( err );
@@ -806,9 +862,9 @@ void PascalParser::statement_list()
     //_output<<"statement_list -> ";
     //statement statement_list_2
     if ( check( ID )
-         || check( LexicalToken( "begin", RESERVED_WORD ) )
-         || check( LexicalToken( "if", RESERVED_WORD ) )
-         || check( LexicalToken( "while", RESERVED_WORD ) ) )
+         || check( LexicalToken( "begin", RESERVED ) )
+         || check( LexicalToken( "if", RESERVED ) )
+         || check( LexicalToken( "while", RESERVED ) ) )
     {
         //_output<<"statement statement_list_2\n";
         statement();
@@ -818,14 +874,14 @@ void PascalParser::statement_list()
 
     _output << "Syntax Error at Line " << getLineNumber() << " in " << __FUNCTION__ << ": Expected " <<
             ID << ", " <<
-            LexicalToken( "begin", RESERVED_WORD ) << ", " <<
-            LexicalToken( "if", RESERVED_WORD ) << ", " <<
-            LexicalToken( "while", RESERVED_WORD ) << ", " <<
+            LexicalToken( "begin", RESERVED ) << ", " <<
+            LexicalToken( "if", RESERVED ) << ", " <<
+            LexicalToken( "while", RESERVED ) << ", " <<
             "but found " << _tok << "\n";
 
     synch( {
         EOF_TOK,
-        LexicalToken( "end", RESERVED_WORD ),
+        LexicalToken( "end", RESERVED ),
     } );
 }
 
@@ -843,7 +899,7 @@ void PascalParser::statement_list_2()
             return;
         }
     }
-    else if ( check( LexicalToken( "end", RESERVED_WORD ) ) )
+    else if ( check( LexicalToken( "end", RESERVED ) ) )
     {
         //_output<<"epsilon\n";
         return;
@@ -852,12 +908,12 @@ void PascalParser::statement_list_2()
     {
         _output << "Syntax Error at Line " << getLineNumber() << " in " << __FUNCTION__ << ": Expected " <<
                 LexicalToken( ";", SYMBOL ) << ", " <<
-                LexicalToken( "end", RESERVED_WORD ) << ", " <<
+                LexicalToken( "end", RESERVED ) << ", " <<
                 "but found " << _tok << "\n";
     }
     synch( {
         EOF_TOK,
-        LexicalToken( "end", RESERVED_WORD ),
+        LexicalToken( "end", RESERVED ),
     } );
 }
 
@@ -871,25 +927,17 @@ PascalParser::Par_List_Ext PascalParser::parameter_list()
         if ( getIdSymbol( id, __FUNCTION__ )
              && match( LexicalToken( ":", SYMBOL ), __FUNCTION__ ) )
         {
-            Type_Ext type_ext = type();
-            ParInfo param;
-            if ( holds_alternative< VarInfo >( type_ext.info ) )
-            {
-                param = get< VarInfo >( type_ext.info );
-            }
-            else if ( holds_alternative< ArrayInfo >( type_ext.info ) )
-            {
-                param = get< ArrayInfo >( type_ext.info );
-            }
-            else
-            {
-                param = VarInfo( T_ERROR );
-                _output << "Type Error at line " << getLineNumber() << " in " << __FUNCTION__ << ": Expected " <<
-                        " a Variable or Array, but found a function.\n";
-            }
-            ext.list.push_back( param );
-            _scope->addVariable( id, type_ext.info );
+            auto ln = getLineNumber();
+            const Type_Ext type_ext = type();
 
+            ext.list.push_back( type_ext.info );
+            if(!_scope->addVariable( id, type_ext.info ))
+            {
+                _output << "Re-declaring parameter "<<_table->get( id).lex<< " at line "<< ln << " in " <<__FUNCTION__<<"\n";
+                Par_List_Ext lst_2 = parameter_list_2();
+                ext.list.emplace_back( VarInfo(T_ERROR));
+                return ext;
+            }
             Par_List_Ext lst_2 = parameter_list_2();
             for ( auto& p : lst_2.list )
                 ext.list.push_back( p );
@@ -925,24 +973,16 @@ PascalParser::Par_List_Ext PascalParser::parameter_list_2()
              && getIdSymbol( id, __FUNCTION__ )
              && match( LexicalToken( ":", SYMBOL ), __FUNCTION__ ) )
         {
-            Type_Ext type_ext = type();
-            ParInfo param;
-            if ( holds_alternative< VarInfo >( type_ext.info ) )
+            auto ln = getLineNumber();
+            const Type_Ext type_ext = type();
+            ext.list.push_back( type_ext.info );
+            if(!_scope->addVariable( id, type_ext.info ))
             {
-                param = get< VarInfo >( type_ext.info );
+                _output << "Re-declaring parameter "<<_table->get( id).lex<< " at line "<< ln << " in " <<__FUNCTION__<<"\n";
+                Par_List_Ext lst_2 = parameter_list_2();
+                ext.list.emplace_back( VarInfo(T_ERROR));
+                return ext;
             }
-            else if ( holds_alternative< ArrayInfo >( type_ext.info ) )
-            {
-                param = get< ArrayInfo >( type_ext.info );
-            }
-            else
-            {
-                param = VarInfo( T_ERROR );
-                _output << "Type Error at line " << getLineNumber() << " in " << __FUNCTION__ << ": Expected " <<
-                        " a Variable or Array, but found a function.\n";
-            }
-            ext.list.push_back( param );
-            _scope->addVariable( id, type_ext.info );
 
             Par_List_Ext lst_2 = parameter_list_2();
             for ( auto& p : lst_2.list )
@@ -972,6 +1012,8 @@ PascalParser::Par_List_Ext PascalParser::parameter_list_2()
     return ext;
 }
 
+
+
 void PascalParser::statement()
 {
     //_output<<"statement -> ";
@@ -984,30 +1026,54 @@ void PascalParser::statement()
         if ( match( ASSIGN_OP, __FUNCTION__ ) )
         {
             const Exp_Ext exp = expression();
-            if ( var.type != exp.info.type && var.type != T_ERROR && exp.info.type != T_ERROR )
-                _output << "Type Error at Line " << ln << " in " << __FUNCTION__
-                        << ": Type Mismatch between " << getString( var.type ) << " and " << getString( exp.info.type )
-                        << "\n";
+            if(holds_alternative<VarInfo>(exp.info))
+            {
+                const VarInfo info = get<VarInfo>(exp.info);
+                if ( var.type != info.type && var.type != T_ERROR && info.type != T_ERROR )
+                    _output << "Type Error at Line " << ln << " in " << __FUNCTION__
+                            << ": Type Mismatch between " << getString( var.type ) << " and " << getString( info.type )
+                            << "\n";
+            }
+            else
+            {
+                const ArrayInfo info = get<ArrayInfo>(exp.info);
+                if ( var.type != info.type && var.type != T_ERROR && info.type != T_ERROR )
+                    _output << "Type Error at Line " << ln << " in " << __FUNCTION__
+                            << ": Type Mismatch between " << getString( var.type ) << " and " << getString( info.type )
+                            << "\n";
+            }
+            
             return;
         }
     }
-    else if ( check( LexicalToken( "begin", RESERVED_WORD ) ) )
+    else if ( check( LexicalToken( "begin", RESERVED ) ) )
     {
         //_output<<"compound_statement\n";
         compound_statement();
         return;
     }
-    else if ( check( LexicalToken( "if", RESERVED_WORD ) ) )
+    else if ( check( LexicalToken( "if", RESERVED ) ) )
     {
         //_output<<"if expression then statement statement_2\n";
-        if ( match( LexicalToken( "if", RESERVED_WORD ), __FUNCTION__ ) )
+        if ( match( LexicalToken( "if", RESERVED ), __FUNCTION__ ) )
         {
             const Exp_Ext exp = expression();
-            if ( exp.info.type != T_BOOLEAN && exp.info.type != T_ERROR )
+            if(holds_alternative<VarInfo>(exp.info))
+            {
+                const VarInfo info = get<VarInfo>(exp.info);
+                
+                if ( info.type != T_BOOLEAN && info.type != T_ERROR )
+                    _output << "Type Error at Line " << ln << " in " << __FUNCTION__
+                            << ": If conditions require T_BOOLEAN but found " << getString( info.type ) << "\n";
+            }
+            else
+            {
+                const ArrayInfo info = get<ArrayInfo>(exp.info);
                 _output << "Type Error at Line " << ln << " in " << __FUNCTION__
-                        << ": If conditions require T_BOOLEAN but found " << getString( exp.info.type ) << "\n";
+                        << ": If conditions require T_BOOLEAN but found an array of " << getString( info.type ) << "\n";
+            }
 
-            if ( match( LexicalToken( "then", RESERVED_WORD ), __FUNCTION__ ) )
+            if ( match( LexicalToken( "then", RESERVED ), __FUNCTION__ ) )
             {
                 statement();
                 statement_2();
@@ -1015,17 +1081,28 @@ void PascalParser::statement()
             }
         }
     }
-    else if ( check( LexicalToken( "while", RESERVED_WORD ) ) )
+    else if ( check( LexicalToken( "while", RESERVED ) ) )
     {
         //_output<<"while expression do statement\n";
-        if ( match( LexicalToken( "while", RESERVED_WORD ), __FUNCTION__ ) )
+        if ( match( LexicalToken( "while", RESERVED ), __FUNCTION__ ) )
         {
             const Exp_Ext exp = expression();
-            if ( exp.info.type != T_BOOLEAN && exp.info.type != T_ERROR )
+            if(holds_alternative<VarInfo>(exp.info))
+            {
+                const VarInfo info = get<VarInfo>(exp.info);
+                
+                if ( info.type != T_BOOLEAN && info.type != T_ERROR )
+                    _output << "Type Error at Line " << ln << " in " << __FUNCTION__
+                            << ": If conditions require T_BOOLEAN but found " << getString( info.type ) << "\n";
+            }
+            else
+            {
+                const ArrayInfo info = get<ArrayInfo>(exp.info);
                 _output << "Type Error at Line " << ln << " in " << __FUNCTION__
-                        << ": While loop conditions require T_BOOLEAN but found " << getString( exp.info.type ) << "\n";
+                        << ": If conditions require T_BOOLEAN but found an array of " << getString( info.type ) << "\n";
+            }
 
-            if ( match( LexicalToken( "do", RESERVED_WORD ), __FUNCTION__ ) )
+            if ( match( LexicalToken( "do", RESERVED ), __FUNCTION__ ) )
             {
                 statement();
                 return;
@@ -1036,15 +1113,15 @@ void PascalParser::statement()
     {
         _output << "Syntax Error at Line " << ln << " in " << __FUNCTION__ << ": Expected " <<
                 ID << ", " <<
-                LexicalToken( "begin", RESERVED_WORD ) << ", " <<
-                LexicalToken( "if", RESERVED_WORD ) << ", " <<
-                LexicalToken( "while", RESERVED_WORD ) << ", " <<
+                LexicalToken( "begin", RESERVED ) << ", " <<
+                LexicalToken( "if", RESERVED ) << ", " <<
+                LexicalToken( "while", RESERVED ) << ", " <<
                 "but found " << _tok << "\n";
     }
 
     synch( {
         EOF_TOK,
-        LexicalToken( "end", RESERVED_WORD ),
+        LexicalToken( "end", RESERVED ),
     } );
 }
 
@@ -1052,17 +1129,17 @@ void PascalParser::statement_2()
 {
     //_output<<"statement_2 -> ";
     //else statement | \epsilon
-    if ( check( LexicalToken( "else", RESERVED_WORD ) ) )
+    if ( check( LexicalToken( "else", RESERVED ) ) )
     {
         //_output<<"else statement\n";
-        if ( match( LexicalToken( "else", RESERVED_WORD ), __FUNCTION__ ) )
+        if ( match( LexicalToken( "else", RESERVED ), __FUNCTION__ ) )
         {
             statement();
             return;
         }
     }
     else if ( check( LexicalToken( ";", SYMBOL ) )
-              || check( LexicalToken( "end", RESERVED_WORD ) ) )
+              || check( LexicalToken( "end", RESERVED ) ) )
     {
         //_output<<"epsilon\n";
         return;
@@ -1070,15 +1147,15 @@ void PascalParser::statement_2()
     else
     {
         _output << "Syntax Error at Line " << getLineNumber() << " in " << __FUNCTION__ << ": Expected " <<
-                LexicalToken( "else", RESERVED_WORD ) << ", " <<
+                LexicalToken( "else", RESERVED ) << ", " <<
                 LexicalToken( ";", SYMBOL ) << ", " <<
-                LexicalToken( "end", RESERVED_WORD ) << ", " <<
+                LexicalToken( "end", RESERVED ) << ", " <<
                 "but found " << _tok << "\n";
     }
 
     synch( {
         EOF_TOK,
-        LexicalToken( "end", RESERVED_WORD ),
+        LexicalToken( "end", RESERVED ),
     } );
 }
 
@@ -1090,7 +1167,15 @@ VarInfo PascalParser::variable()
         unsigned id_idx;
         if ( getIdSymbol( id_idx, __FUNCTION__ ) )
         {
-            const Info inf = _scope->getVariable( id_idx );
+            Info inf;
+            try
+            {
+                inf = _scope->getVariable( id_idx );
+            }catch(...)
+            {
+                _output << "Syntax Error at Line " << getLineNumber() << " in " << __FUNCTION__ << ": ID "
+                    << _table->get(id_idx).lex << " is undeclared.\n";
+            }
             return variable_2( inf );
         }
     }
@@ -1119,21 +1204,25 @@ VarInfo PascalParser::variable_2( const Info& intr )
         if ( match( LexicalToken( "[", SYMBOL ), __FUNCTION__ ) )
         {
             const Exp_Ext exp = expression();
-            if ( auto arr = get_if< ArrayInfo >( &intr ) )
+            if ( const auto arr = get_if< ArrayInfo >( &intr ) )
             {
-                if ( exp.info.type != T_INTEGER )
+                if ( const auto info = get_if<VarInfo>(&exp.info) )
                 {
-                    _output << "Type Error at Line " << getLineNumber() << " in " << __FUNCTION__
-                            << ": Array index must be an integer.  Instead have a " << getString( exp.info.type ) <<
-                            "\n";
+                    if(info->type != T_INTEGER && info->type != T_ERROR)
+                        _output << "Type Error at Line " << getLineNumber() << " in " << __FUNCTION__
+                                << ": Array index must be an integer.  Instead have a " << getString( info->type ) <<
+                                "\n";
                 }
                 ext.type = arr->type;
             }
             else
             {
-                if ( auto var = get_if< VarInfo >( &intr ) )
-                    _output << "Type Error at Line " << getLineNumber() << " in " << __FUNCTION__
-                            << ": Only arrays have indexes.  Attempting to access a " << getString( var->type ) << "\n";
+                if ( const auto var = get_if< VarInfo >( &intr ))
+                {
+                    if( var->type != T_ERROR)
+                        _output << "Type Error at Line " << getLineNumber() << " in " << __FUNCTION__
+                                << ": Only arrays have indexes.  Attempting to access a " << getString( var->type ) << "\n";
+                }
                 else
                     _output << "Type Error at Line " << getLineNumber() << " in " << __FUNCTION__
                             << ": Only arrays have indexes.  Attempting to access a function.\n";
@@ -1147,17 +1236,20 @@ VarInfo PascalParser::variable_2( const Info& intr )
     }
     else if ( check( LexicalToken( ":=", ASSIGN_OP ) ) )
     {
-        if ( !holds_alternative< ArrayInfo >( intr ) )
+        if(const auto arr = get_if<ArrayInfo>(&intr))
         {
-            if ( auto var = get_if< VarInfo >( &intr ) )
-                ext.type = var->type;
-            else if ( auto func = get_if< FuncInfo >( &intr ) )
-                ext.type = func->type;
+            ext.type = T_ERROR;
+            if(arr->type != T_ERROR)
+                _output << "Type Error at Line " << getLineNumber() << " in " << __FUNCTION__
+                        << ": Cannot assign a value to an array.\n";
         }
-        else
+        else if(const auto fun = get_if<FuncInfo>(&intr))
         {
-            _output << "Type Error at Line " << getLineNumber() << " in " << __FUNCTION__
-                    << ": Cannot assign a value to an array.\n";
+            ext.type = fun->type;
+        }
+        else if(const auto var = get_if<VarInfo>(&intr))
+        {
+            ext.type = var->type;
         }
         //_output<<"epsilon\n";
         return ext;
@@ -1213,12 +1305,12 @@ PascalParser::Exp_Ext PascalParser::expression()
         LexicalToken( ")", SYMBOL ),
         LexicalToken( ",", SYMBOL ),
         LexicalToken( ";", SYMBOL ),
-        LexicalToken( "then", RESERVED_WORD ),
-        LexicalToken( "do", RESERVED_WORD ),
-        LexicalToken( "end", RESERVED_WORD ),
-        LexicalToken( "else", RESERVED_WORD ),
+        LexicalToken( "then", RESERVED ),
+        LexicalToken( "do", RESERVED ),
+        LexicalToken( "end", RESERVED ),
+        LexicalToken( "else", RESERVED ),
     } );
-    ext.info.type = T_ERROR;
+    ext.info = VarInfo(T_ERROR);
     return ext;
 }
 
@@ -1234,18 +1326,36 @@ PascalParser::Exp_Ext PascalParser::expression_2( Exp_Ext& intr )
         if ( match( REL_OP, __FUNCTION__ ) )
         {
             const Exp_Ext rhs = simple_expression();
-            if ( intr.info.type != rhs.info.type )
+
+            const auto intr_info = get_if<VarInfo>(&intr.info);
+            const auto rhs_info = get_if<VarInfo>(&rhs.info);
+
+            if(!intr_info || !rhs_info)
             {
-                if ( intr.info.type != T_ERROR && rhs.info.type != T_ERROR )
+                _output << "Type Error at Line " << getLineNumber() << " in " << __FUNCTION__
+                        << ": Cannot Compare an array."
+                        << "\n";
+                ext.info = VarInfo(T_ERROR);
+            }
+            else if ( intr_info->type != rhs_info->type )
+            {
+                if ( intr_info->type != T_ERROR && rhs_info->type != T_ERROR )
                     _output << "Type Error at Line " << getLineNumber() << " in " << __FUNCTION__
-                            << ": Cannot Compare " << getString( intr.info.type ) << " and " <<
-                            getString( rhs.info.type )
+                            << ": Cannot Compare " << getString( intr_info->type ) << " and " <<
+                            getString( rhs_info->type )
                             << "\n";
-                ext.info.type = T_ERROR;
+                ext.info = VarInfo(T_ERROR);
+            }
+            else if (intr_info->type == T_BOOLEAN)
+            {
+                _output << "Type Error at Line " << getLineNumber() << " in " << __FUNCTION__
+                        << ": Cannot Compare " << getString( intr_info->type )
+                        << "\n";
+                ext.info = VarInfo(T_ERROR);
             }
             else
             {
-                ext.info.type = T_BOOLEAN;
+                ext.info = VarInfo(T_BOOLEAN);
             }
             return ext;
         }
@@ -1254,10 +1364,10 @@ PascalParser::Exp_Ext PascalParser::expression_2( Exp_Ext& intr )
               || check( LexicalToken( ")", SYMBOL ) )
               || check( LexicalToken( ",", SYMBOL ) )
               || check( LexicalToken( ";", SYMBOL ) )
-              || check( LexicalToken( "then", RESERVED_WORD ) )
-              || check( LexicalToken( "do", RESERVED_WORD ) )
-              || check( LexicalToken( "end", RESERVED_WORD ) )
-              || check( LexicalToken( "else", RESERVED_WORD ) ) )
+              || check( LexicalToken( "then", RESERVED ) )
+              || check( LexicalToken( "do", RESERVED ) )
+              || check( LexicalToken( "end", RESERVED ) )
+              || check( LexicalToken( "else", RESERVED ) ) )
     {
         //_output<<"epsilon\n";
         return intr;
@@ -1270,10 +1380,10 @@ PascalParser::Exp_Ext PascalParser::expression_2( Exp_Ext& intr )
                 LexicalToken( ")", SYMBOL ) << ", " <<
                 LexicalToken( ",", SYMBOL ) << ", " <<
                 LexicalToken( ";", SYMBOL ) << ", " <<
-                LexicalToken( "then", RESERVED_WORD ) << ", " <<
-                LexicalToken( "do", RESERVED_WORD ) << ", " <<
-                LexicalToken( "end", RESERVED_WORD ) << ", " <<
-                LexicalToken( "else", RESERVED_WORD ) << ", " <<
+                LexicalToken( "then", RESERVED ) << ", " <<
+                LexicalToken( "do", RESERVED ) << ", " <<
+                LexicalToken( "end", RESERVED ) << ", " <<
+                LexicalToken( "else", RESERVED ) << ", " <<
                 "but found " << _tok << "\n";
     }
 
@@ -1283,12 +1393,12 @@ PascalParser::Exp_Ext PascalParser::expression_2( Exp_Ext& intr )
         LexicalToken( ")", SYMBOL ),
         LexicalToken( ",", SYMBOL ),
         LexicalToken( ";", SYMBOL ),
-        LexicalToken( "then", RESERVED_WORD ),
-        LexicalToken( "do", RESERVED_WORD ),
-        LexicalToken( "end", RESERVED_WORD ),
-        LexicalToken( "else", RESERVED_WORD ),
+        LexicalToken( "then", RESERVED ),
+        LexicalToken( "do", RESERVED ),
+        LexicalToken( "end", RESERVED ),
+        LexicalToken( "else", RESERVED ),
     } );
-    ext.info.type = T_ERROR;
+    ext.info = VarInfo(T_ERROR);
     return ext;
 }
 
@@ -1314,6 +1424,24 @@ PascalParser::Exp_Ext PascalParser::simple_expression()
         //_output<<"sign term simple_expression_2\n";
         sign();
         Exp_Ext term_ext = term();
+        const auto term_info = get_if<VarInfo>(&term_ext.info);
+
+        if(!term_info)
+        {
+            const int ln = getLineNumber();
+            _output << "Type Error at Line " << ln << " in " << __FUNCTION__
+                    << ": or operation requires T_INTEGER or T_REAL but found an array.\n";
+            term_ext.info = VarInfo(T_ERROR);
+        }
+        else if(term_info->type != T_INTEGER && term_info->type != T_REAL)
+        {
+            const int ln = getLineNumber();
+            if(term_info->type != T_ERROR)
+                _output << "Type Error at Line " << ln << " in " << __FUNCTION__
+                        << ": or operation requires T_INTEGER or T_REAL but found " << getString( term_info->type ) << ".\n";
+            term_ext.info = VarInfo(T_ERROR);
+        }
+
         ext = simple_expression_2( term_ext );
         return ext;
     }
@@ -1334,12 +1462,12 @@ PascalParser::Exp_Ext PascalParser::simple_expression()
         LexicalToken( ")", SYMBOL ),
         LexicalToken( ",", SYMBOL ),
         LexicalToken( ";", SYMBOL ),
-        LexicalToken( "then", RESERVED_WORD ),
-        LexicalToken( "do", RESERVED_WORD ),
-        LexicalToken( "end", RESERVED_WORD ),
-        LexicalToken( "else", RESERVED_WORD ),
+        LexicalToken( "then", RESERVED ),
+        LexicalToken( "do", RESERVED ),
+        LexicalToken( "end", RESERVED ),
+        LexicalToken( "else", RESERVED ),
     } );
-    ext.info.type = T_ERROR;
+    ext.info = VarInfo(T_ERROR);
     return ext;
 }
 
@@ -1351,35 +1479,93 @@ PascalParser::Exp_Ext PascalParser::simple_expression_2( Exp_Ext& intr )
     if ( check( ADD_OP ) )
     {
         const int ln = getLineNumber();
-        if ( check( LexicalToken( "or", ADD_OP ) ) && intr.info.type != T_BOOLEAN )
+
+        const auto intr_info = get_if<VarInfo>(&intr.info);
+        if(!intr_info)
         {
             _output << "Type Error at Line " << ln << " in " << __FUNCTION__
-                    << ": or operation requires T_BOOL but found " << getString( intr.info.type ) << ".\n";
-            match( ADD_OP, __FUNCTION__ );
+                    << ": Operation requires singular types but found an array on the left side.\n";
             term();
-            simple_expression_2( intr );
-            ext.info.type = T_ERROR;
+            ext.info = VarInfo(T_ERROR);
+            simple_expression_2( ext );
             return ext;
         }
-        //_output<<"addop term simple_expression_2\n";
-        if ( match( ADD_OP, __FUNCTION__ ) )
+        else if ( check( LexicalToken( "or", ADD_OP ) ))
         {
-            const Exp_Ext term_ext = term();
-            Exp_Ext se_intr;
-            if ( intr.info.type == term_ext.info.type && term_ext.info.type != T_ERROR )
+            if( intr_info->type != T_BOOLEAN)
             {
-                se_intr.info.type = intr.info.type;
+                if(intr_info->type != T_ERROR)
+                    _output << "Type Error at Line " << ln << " in " << __FUNCTION__
+                            << ": or operation requires T_BOOL but found " << getString( intr_info->type ) << ".\n";
+                match( ADD_OP, __FUNCTION__ );
+                term();
+                ext.info = VarInfo(T_ERROR);
+                simple_expression_2( ext );
             }
             else
             {
-                se_intr.info.type = T_ERROR;
-                if ( intr.info.type != T_ERROR && term_ext.info.type != T_ERROR )
+                match( ADD_OP, __FUNCTION__ );
+                const Exp_Ext term_ext = term();
+                const auto t_ext_info = get_if<VarInfo>(&term_ext.info);
+                if(!t_ext_info)
+                {
+                     _output << "Type Error at Line " << ln << " in " << __FUNCTION__
+                    << ": or operation requires a singular type but found an array on the right side.\n";
+                    ext.info = VarInfo(T_ERROR);
+                    simple_expression_2( ext );
+                }
+                if(t_ext_info->type != T_BOOLEAN)
+                {
+                    if(t_ext_info->type != T_ERROR)
+                        _output << "Type Error at Line " << ln << " in " << __FUNCTION__
+                            << ": or operation requires T_BOOL but found " << getString( t_ext_info->type ) << ".\n";
+                    
+                    ext.info = VarInfo(T_ERROR);
+                    simple_expression_2( ext );
+                }
+                else
+                {
+                    ext = simple_expression_2( intr );
+                }
+            }
+            return ext;
+        }
+        else if ( match( ADD_OP, __FUNCTION__ ) ) 
+        {
+        //_output<<"addop term simple_expression_2\n";
+            const Exp_Ext term_ext = term();
+            const auto t_ext_info = get_if<VarInfo>(&term_ext.info);
+            if(!t_ext_info)
+            {
+                _output << "Type Error at Line " << ln << " in " << __FUNCTION__
+                    << ": add operation requires a singular type but found an array on the right side.\n";
+                ext.info = VarInfo(T_ERROR);
+                simple_expression_2( ext );
+            }
+            else if ( intr_info->type != t_ext_info->type || t_ext_info->type == T_ERROR )
+            {
+                ext.info = VarInfo(T_ERROR);
+                simple_expression_2( ext );
+                if ( intr_info->type != T_ERROR && t_ext_info->type != T_ERROR )
                     _output << "Type Error at Line " << getLineNumber() << " in " << __FUNCTION__
-                            << ": Type Mismatch between " << getString( intr.info.type ) << " and " <<
-                            getString( term_ext.info.type ) << "\n";
+                            << ": Type Mismatch between " << getString( intr_info->type ) << " and " <<
+                            getString( t_ext_info->type ) << "\n";
+            }
+            else if(t_ext_info->type == T_BOOLEAN)
+            {
+                ext.info = VarInfo(T_ERROR);
+                simple_expression_2( ext );
+                if(intr_info->type != T_ERROR)
+                    _output << "Type Error at Line " << getLineNumber() << " in " << __FUNCTION__
+                            << ": Expected T_INTEGER or T_REAL but found " << getString( intr_info->type ) << " and " <<
+                            getString( t_ext_info->type ) << "\n";
+            }
+            else
+            {
+                ext = simple_expression_2( intr );
             }
 
-            return simple_expression_2( se_intr );
+            return ext;
         }
     }
     else if ( check( REL_OP )
@@ -1387,10 +1573,10 @@ PascalParser::Exp_Ext PascalParser::simple_expression_2( Exp_Ext& intr )
               || check( LexicalToken( ")", SYMBOL ) )
               || check( LexicalToken( ",", SYMBOL ) )
               || check( LexicalToken( ";", SYMBOL ) )
-              || check( LexicalToken( "then", RESERVED_WORD ) )
-              || check( LexicalToken( "do", RESERVED_WORD ) )
-              || check( LexicalToken( "end", RESERVED_WORD ) )
-              || check( LexicalToken( "else", RESERVED_WORD ) ) )
+              || check( LexicalToken( "then", RESERVED ) )
+              || check( LexicalToken( "do", RESERVED ) )
+              || check( LexicalToken( "end", RESERVED ) )
+              || check( LexicalToken( "else", RESERVED ) ) )
     {
         ext.info = intr.info;
         //_output<<"epsilon\n";
@@ -1398,7 +1584,7 @@ PascalParser::Exp_Ext PascalParser::simple_expression_2( Exp_Ext& intr )
     }
     else
     {
-        ext.info.type = T_ERROR;
+        ext.info = VarInfo(T_ERROR);
         _output << "Syntax Error at Line " << getLineNumber() << " in " << __FUNCTION__ << ": Expected " <<
                 ADD_OP << ", " <<
                 REL_OP << ", " <<
@@ -1406,10 +1592,10 @@ PascalParser::Exp_Ext PascalParser::simple_expression_2( Exp_Ext& intr )
                 LexicalToken( ")", SYMBOL ) << ", " <<
                 LexicalToken( ",", SYMBOL ) << ", " <<
                 LexicalToken( ";", SYMBOL ) << ", " <<
-                LexicalToken( "then", RESERVED_WORD ) << ", " <<
-                LexicalToken( "do", RESERVED_WORD ) << ", " <<
-                LexicalToken( "end", RESERVED_WORD ) << ", " <<
-                LexicalToken( "else", RESERVED_WORD ) << ", " <<
+                LexicalToken( "then", RESERVED ) << ", " <<
+                LexicalToken( "do", RESERVED ) << ", " <<
+                LexicalToken( "end", RESERVED ) << ", " <<
+                LexicalToken( "else", RESERVED ) << ", " <<
                 "but found " << _tok << "\n";
     }
 
@@ -1420,10 +1606,10 @@ PascalParser::Exp_Ext PascalParser::simple_expression_2( Exp_Ext& intr )
         LexicalToken( ")", SYMBOL ),
         LexicalToken( ",", SYMBOL ),
         LexicalToken( ";", SYMBOL ),
-        LexicalToken( "then", RESERVED_WORD ),
-        LexicalToken( "do", RESERVED_WORD ),
-        LexicalToken( "end", RESERVED_WORD ),
-        LexicalToken( "else", RESERVED_WORD ),
+        LexicalToken( "then", RESERVED ),
+        LexicalToken( "do", RESERVED ),
+        LexicalToken( "end", RESERVED ),
+        LexicalToken( "else", RESERVED ),
     } );
     return ext;
 }
@@ -1440,13 +1626,13 @@ PascalParser::Exp_Ext PascalParser::term()
          || check( LexicalToken( "not", REL_OP ) ) )
     {
         //_output<<"factor term_2\n";
-        const Type_Ext fext = factor();
+        const Exp_Ext fext = factor();
         const Exp_Ext t2_ext = term_2( fext );
         ext.info = t2_ext.info;
         return ext;
     }
 
-    ext.info.type = T_ERROR;
+    ext.info = VarInfo(T_ERROR);
     _output << "Syntax Error at Line " << getLineNumber() << " in " << __FUNCTION__ << ": Expected " <<
             ID << ", " <<
             INTEGER << ", " <<
@@ -1463,67 +1649,81 @@ PascalParser::Exp_Ext PascalParser::term()
         LexicalToken( ")", SYMBOL ),
         LexicalToken( ",", SYMBOL ),
         LexicalToken( ";", SYMBOL ),
-        LexicalToken( "then", RESERVED_WORD ),
-        LexicalToken( "do", RESERVED_WORD ),
-        LexicalToken( "end", RESERVED_WORD ),
-        LexicalToken( "else", RESERVED_WORD ),
+        LexicalToken( "then", RESERVED ),
+        LexicalToken( "do", RESERVED ),
+        LexicalToken( "end", RESERVED ),
+        LexicalToken( "else", RESERVED ),
     } );
     return ext;
 }
 
-PascalParser::Exp_Ext PascalParser::term_2( Type_Ext intr )
+PascalParser::Exp_Ext PascalParser::term_2( Exp_Ext intr )
 {
     Exp_Ext ext;
-    if ( !holds_alternative< VarInfo >( intr.info ) )
-    {
-        _output << "Type Error at Line " << getLineNumber() << " in " << __FUNCTION__
-                << ": Type must resolve to a value.  Instead have a ";
-        if ( holds_alternative< ArrayInfo >( intr.info ) )
-        {
-            _output << "Array.\n";
-        }
-        else
-        {
-            _output << "Function.\n";
-        }
-        ext.info.type = T_ERROR;
-        return ext;
-    }
-
-    const VarInfo var = get< VarInfo >( intr.info );
+    
     //_output<<"term_2 -> ";
     //mulop factor term_2 | \epsilon
     if ( check( MUL_OP ) )
     {
-        const int ln = getLineNumber();
-        if ( check( LexicalToken( "and", MUL_OP ) ) && var.type != T_BOOLEAN )
+        const auto var = get_if<VarInfo>(&intr.info);
+        if ( !var )
         {
-            _output << "Type Error at Line " << ln << " in " << __FUNCTION__
-                    << ": and operation requires T_BOOL but found " << getString( var.type ) << ".\n";
+            _output << "Type Error at Line " << getLineNumber() << " in " << __FUNCTION__
+                    << ": Type must resolve to a value.  Instead have a ";
+            if ( holds_alternative< ArrayInfo >( intr.info ) )
+            {
+                _output << "Array.\n";
+            }
+            else
+            {
+                _output << "Function.\n";
+            }
+            ext.info = VarInfo(T_ERROR);
+            return ext;
+        }
+
+        const int ln = getLineNumber();
+        if ( check( LexicalToken( "and", MUL_OP ) ) && var->type != T_BOOLEAN )
+        {
+            if(var->type != T_ERROR)
+                _output << "Type Error at Line " << ln << " in " << __FUNCTION__
+                        << ": and operation requires T_BOOL but found " << getString( var->type ) << ".\n";
             match( MUL_OP, __FUNCTION__ );
-            term_2( factor() );
-            ext.info.type = T_ERROR;
+            factor();
+            ext.info = VarInfo(T_ERROR);
+            term_2( ext );
             return ext;
         }
         //_output<<"mulop factor term_2\n";
         if ( match( MUL_OP, __FUNCTION__ ) )
         {
-            const Type_Ext type_ext = factor();
+            Exp_Ext type_ext = factor();
+            const auto type_ext_info = get_if<VarInfo>(&type_ext.info);
+            if ( !type_ext_info )
+            {
+                _output << "Type Error at Line " << getLineNumber() << " in " << __FUNCTION__
+                        << ": Type must resolve to a value.  Instead have a ";
+                if ( holds_alternative< ArrayInfo >( type_ext.info ) )
+                {
+                    _output << "Array.\n";
+                }
+                else
+                {
+                    _output << "Function.\n";
+                }
+                type_ext.info = VarInfo(T_ERROR);
+            }
+            else if(type_ext_info->type != var->type)
+            {
+                if(var->type != T_ERROR && type_ext_info->type != T_ERROR)
+                    _output << "Type Error at Line " << ln << " in " << __FUNCTION__
+                            << ": Type Mismatch between " << getString( var->type ) << " and " <<
+                            getString( type_ext_info->type ) << "\n";
+                type_ext.info = VarInfo(T_ERROR);
+            }
 
             const Exp_Ext t2_ext = term_2( type_ext );
-            if ( t2_ext.info.type == var.type && t2_ext.info.type != T_ERROR )
-            {
-                ext.info = var;
-            }
-            else
-            {
-                ext.info.type = T_ERROR;
-                if ( t2_ext.info.type != T_ERROR && var.type != T_ERROR )
-                    _output << "Type Error at Line " << ln << " in " << __FUNCTION__
-                            << ": Type Mismatch between " << getString( var.type ) << " and " <<
-                            getString( t2_ext.info.type ) << "\n";
-            }
-            return ext;
+            return t2_ext;
         }
     }
     else if ( check( REL_OP )
@@ -1532,13 +1732,18 @@ PascalParser::Exp_Ext PascalParser::term_2( Type_Ext intr )
               || check( LexicalToken( ")", SYMBOL ) )
               || check( LexicalToken( ",", SYMBOL ) )
               || check( LexicalToken( ";", SYMBOL ) )
-              || check( LexicalToken( "then", RESERVED_WORD ) )
-              || check( LexicalToken( "do", RESERVED_WORD ) )
-              || check( LexicalToken( "end", RESERVED_WORD ) )
-              || check( LexicalToken( "else", RESERVED_WORD ) ) )
+              || check( LexicalToken( "then", RESERVED ) )
+              || check( LexicalToken( "do", RESERVED ) )
+              || check( LexicalToken( "end", RESERVED ) )
+              || check( LexicalToken( "else", RESERVED ) ) )
     {
         //_output<<"epsilon\n";
-        ext.info = var;
+        if( const auto var = get_if<VarInfo>(&intr.info))
+            ext.info = *var;
+        else if( const auto arr = get_if<ArrayInfo>(&intr.info))
+            ext.info = *arr;
+        else
+            ext.info = VarInfo(T_ERROR);
         return ext;
     }
     else
@@ -1551,10 +1756,10 @@ PascalParser::Exp_Ext PascalParser::term_2( Type_Ext intr )
                 LexicalToken( ")", SYMBOL ) << ", " <<
                 LexicalToken( ",", SYMBOL ) << ", " <<
                 LexicalToken( ";", SYMBOL ) << ", " <<
-                LexicalToken( "then", RESERVED_WORD ) << ", " <<
-                LexicalToken( "do", RESERVED_WORD ) << ", " <<
-                LexicalToken( "end", RESERVED_WORD ) << ", " <<
-                LexicalToken( "else", RESERVED_WORD ) << ", " <<
+                LexicalToken( "then", RESERVED ) << ", " <<
+                LexicalToken( "do", RESERVED ) << ", " <<
+                LexicalToken( "end", RESERVED ) << ", " <<
+                LexicalToken( "else", RESERVED ) << ", " <<
                 "but found " << _tok << "\n";
     }
 
@@ -1574,12 +1779,12 @@ PascalParser::Exp_Ext PascalParser::term_2( Type_Ext intr )
         LexicalToken( ")", SYMBOL ),
         LexicalToken( ",", SYMBOL ),
         LexicalToken( ";", SYMBOL ),
-        LexicalToken( "then", RESERVED_WORD ),
-        LexicalToken( "do", RESERVED_WORD ),
-        LexicalToken( "end", RESERVED_WORD ),
-        LexicalToken( "else", RESERVED_WORD ),
+        LexicalToken( "then", RESERVED ),
+        LexicalToken( "do", RESERVED ),
+        LexicalToken( "end", RESERVED ),
+        LexicalToken( "else", RESERVED ),
     } );
-    ext.info.type = T_ERROR;
+    ext.info = VarInfo(T_ERROR);
     return ext;
 }
 
@@ -1630,13 +1835,13 @@ bool PascalParser::checkParameters( vector< ParInfo >& actual, vector< ParInfo >
                 << actual.size() << " but found " << found.size() << ".\n";
         return false;
     }
-    for ( int idx = 0; idx < actual.size(); ++idx )
+    for ( int idx = 0; idx < static_cast< int >(actual.size()); ++idx )
     {
         if ( holds_alternative< VarInfo >( actual[idx] ) && holds_alternative< VarInfo >( found[idx] ) )
         {
             const VarInfo a = get< VarInfo >( actual[idx] );
             const VarInfo f = get< VarInfo >( found[idx] );
-            if ( a.type != f.type )
+            if ( a.type != f.type && f.type != T_ERROR && a.type != T_ERROR )
             {
                 _output << "Type Error at line " << getLineNumber() << " in " << __FUNCTION__ << ": "
                         "Parameter " << idx << " incorrect.  Expected "
@@ -1648,7 +1853,7 @@ bool PascalParser::checkParameters( vector< ParInfo >& actual, vector< ParInfo >
         {
             const ArrayInfo a = get< ArrayInfo >( actual[idx] );
             const ArrayInfo f = get< ArrayInfo >( found[idx] );
-            if ( a.type != f.type || a.access_offset != f.access_offset || a.count != f.count )
+            if ( a.type != f.type && f.type != T_ERROR && a.type != T_ERROR || a.access_offset != f.access_offset || a.count != f.count )
             {
                 _output << "Type Error at line " << getLineNumber() << " in " << __FUNCTION__ << ": "
                         "Parameter " << idx << " incorrect.  Expected "
@@ -1664,18 +1869,20 @@ bool PascalParser::checkParameters( vector< ParInfo >& actual, vector< ParInfo >
             {
                 const VarInfo a = get< VarInfo >( actual[idx] );
                 const ArrayInfo f = get< ArrayInfo >( found[idx] );
-                _output << "Type Error at line " << getLineNumber() << " in " << __FUNCTION__ << ": "
-                        << "Parameter " << idx << " incorrect.  Expected an " << getString( a.type ) << " but found "
-                        << getString( f.type ) << " array[" << f.access_offset << " .. " << f.count << "].\n";
+                if(a.type != T_ERROR && f.type != T_ERROR)
+                    _output << "Type Error at line " << getLineNumber() << " in " << __FUNCTION__ << ": "
+                            << "Parameter " << idx << " incorrect.  Expected an " << getString( a.type ) << " but found "
+                            << getString( f.type ) << " array[" << f.access_offset << " .. " << f.count << "].\n";
             }
             else
             {
                 const ArrayInfo a = get< ArrayInfo >( actual[idx] );
                 const VarInfo f = get< VarInfo >( found[idx] );
-                _output << "Type Error at line " << getLineNumber() << " in " << __FUNCTION__ << ": "
-                        << "Parameter " << idx << " incorrect.  Expected :"
-                        << getString( a.type ) << " array[" << a.access_offset << " .. " << a.count << "]"
-                        << " but found " << getString( f.type ) << ".\n";
+                if(a.type != T_ERROR && f.type != T_ERROR)
+                    _output << "Type Error at line " << getLineNumber() << " in " << __FUNCTION__ << ": "
+                            << "Parameter " << idx << " incorrect.  Expected :"
+                            << getString( a.type ) << " array[" << a.access_offset << " .. " << a.count << "]"
+                            << " but found " << getString( f.type ) << ".\n";
             }
             return false;
         }
@@ -1683,14 +1890,23 @@ bool PascalParser::checkParameters( vector< ParInfo >& actual, vector< ParInfo >
     return true;
 }
 
-PascalParser::Type_Ext PascalParser::factor_prod_1( const unsigned id_idx )
+PascalParser::Exp_Ext PascalParser::factor_prod_1( const unsigned id_idx )
 {
     //_output<<"id factor_2\n";
-    Type_Ext ext;
-    VarInfo var;;
-    Info variable = _scope->getVariable( id_idx );
+    Exp_Ext ext;
+    VarInfo var;
+    Info variable;
+    try
+    {
+        variable= _scope->getVariable( id_idx );
+    }catch(...)
+    {
+        _output << "Syntax Error at Line " << getLineNumber() << " in " << __FUNCTION__ << ": ID "
+            << _table->get(id_idx).lex << " is undeclared.\n";
+    }
+
     Fac_2_Ext fac_2 = factor_2();
-    if ( holds_alternative< monostate >( fac_2.type ) ) //if factor_2 is epsilon
+    if ( holds_alternative< monostate >( fac_2 ) ) //if factor_2 is epsilon
     {
         if ( holds_alternative< FuncInfo >( variable ) )
         {
@@ -1699,28 +1915,36 @@ PascalParser::Type_Ext PascalParser::factor_prod_1( const unsigned id_idx )
                     << "Function " << _table->get( id_idx ).lex << " used as a variable.\n";
             ext.info = var;
         }
+        else if( const auto arrInfo = get_if<ArrayInfo>(&variable))
+        {
+            ext.info = *arrInfo;
+        }
+        else if( const auto varInfo = get_if<VarInfo>(&variable))
+        {
+            ext.info = *varInfo;
+        }
         else
         {
-            ext.info = variable;
+            ext.info = VarInfo(T_ERROR);
         }
     }
-    else if ( holds_alternative< vector< ParInfo > >( fac_2.type ) ) //if factor_2 is ( parameter_list )
+    else if ( holds_alternative< Exp_List_Ext >( fac_2 ) ) //if factor_2 is ( parameter_list )
     {
+        var.type = T_ERROR;
         if ( auto func = get_if< FuncInfo >( &variable ) )
         {
-            var.type = func->type;
-            auto vec = get< vector< ParInfo > >( fac_2.type );
-            if ( !checkParameters( func->parameters, vec ) )
-                var.type = T_ERROR;
+            auto vec = get< Exp_List_Ext >( fac_2 );
+            if ( func->type != T_ERROR && checkParameters( func->parameters, vec ) )
+                var.type = func->type;
         }
         ext.info = var;
     }
-    else //if factor_2 is [expression]
+    else //if factor_2 is [expression] and fac_2 is VarInfo
     {
         var.type = T_ERROR;
         if ( holds_alternative< ArrayInfo >( variable ) )
         {
-            const VarInfo& accessor = get< VarInfo >( fac_2.type );
+            const VarInfo& accessor = get< VarInfo >( fac_2 );
             if ( accessor.type == T_ERROR )
             {
                 //Error already handled.
@@ -1738,10 +1962,10 @@ PascalParser::Type_Ext PascalParser::factor_prod_1( const unsigned id_idx )
         }
         else if ( holds_alternative< FuncInfo >( variable ) )
         {
-            _output << "Type Error at line " << getLineNumber() << " in " << __FUNCTION__ << ": "
+            _output << "Type Error at line " << getLineNumber() << " in " << __FUNCTION__ << ": "////
                     << "Attempting to access Function as an Array.\n";
         }
-        else
+        else if(get<VarInfo>(variable).type != T_ERROR)
         {
             _output << "Type Error at line " << getLineNumber() << " in " << __FUNCTION__ << ": "
                     << "Attempting to access Variable as an Array.\n";
@@ -1751,9 +1975,9 @@ PascalParser::Type_Ext PascalParser::factor_prod_1( const unsigned id_idx )
     return ext;
 }
 
-PascalParser::Type_Ext PascalParser::factor()
+PascalParser::Exp_Ext PascalParser::factor()
 {
-    Type_Ext ext;
+    Exp_Ext ext;
     //_output<<"factor -> ";
     // id factor_2 | num | ( expression ) | not factor
     if ( check( ID ) )
@@ -1790,7 +2014,7 @@ PascalParser::Type_Ext PascalParser::factor()
     else if ( check( LexicalToken( "(", SYMBOL ) ) && match( LexicalToken( "(", SYMBOL ), __FUNCTION__ ) )
     {
         //_output<<"( expression )\n";
-        Exp_Ext expr = expression();
+        const Exp_Ext expr = expression();
         if ( match( LexicalToken( ")", SYMBOL ), __FUNCTION__ ) )
         {
             ext.info = expr.info;
@@ -1801,7 +2025,7 @@ PascalParser::Type_Ext PascalParser::factor()
     {
         //_output<<"not factor\n";
         const int ln = getLineNumber();
-        Type_Ext fac = factor();
+        Exp_Ext fac = factor();
         ext.info = VarInfo( T_ERROR );
         if ( holds_alternative< VarInfo >( fac.info ) )
         {
@@ -1821,11 +2045,11 @@ PascalParser::Type_Ext PascalParser::factor()
             _output << "Type Error at line " << ln << " in " << __FUNCTION__ << ": "
                     << "REL_OP not requires T_BOOLEAN but found an array.\n";
         }
-        else if ( holds_alternative< FuncInfo >( fac.info ) )
-        {
-            _output << "Type Error at line " << ln << " in " << __FUNCTION__ << ": "
-                    << "REL_OP not requires T_BOOLEAN but found a function.\n";
-        }
+        //else if ( holds_alternative< FuncInfo >( fac.info ) )
+        //{
+        //    _output << "Type Error at line " << ln << " in " << __FUNCTION__ << ": "
+        //            << "REL_OP not requires T_BOOLEAN but found a function.\n";
+        //}
         return ext;
     }
     else
@@ -1848,10 +2072,10 @@ PascalParser::Type_Ext PascalParser::factor()
         LexicalToken( ")", SYMBOL ),
         LexicalToken( ",", SYMBOL ),
         LexicalToken( ";", SYMBOL ),
-        LexicalToken( "then", RESERVED_WORD ),
-        LexicalToken( "do", RESERVED_WORD ),
-        LexicalToken( "end", RESERVED_WORD ),
-        LexicalToken( "else", RESERVED_WORD ),
+        LexicalToken( "then", RESERVED ),
+        LexicalToken( "do", RESERVED ),
+        LexicalToken( "end", RESERVED ),
+        LexicalToken( "else", RESERVED ),
     } );
     ext.info = VarInfo( T_ERROR );
     return ext;
@@ -1870,7 +2094,7 @@ PascalParser::Fac_2_Ext PascalParser::factor_2()
             Exp_List_Ext exp_list = expression_list();
             if ( match( LexicalToken( ")", SYMBOL ), __FUNCTION__ ) )
             {
-                ext.type = exp_list.list;
+                ext = exp_list;
                 return ext;
             }
         }
@@ -1880,13 +2104,25 @@ PascalParser::Fac_2_Ext PascalParser::factor_2()
         //_output<<"[ expression ]\n";
         if ( match( LexicalToken( "[", SYMBOL ), __FUNCTION__ ) )
         {
+            const int ln = getLineNumber();
             Exp_Ext exp = expression();
             if ( match( LexicalToken( "]", SYMBOL ), __FUNCTION__ ) )
             {
-                if ( exp.info.type == T_INTEGER )
-                    ext.type = exp.info;
+                const auto var = get_if<VarInfo>(&exp.info);
+                if(var && var->type == T_INTEGER)
+                    ext = *var;
+                else if(var)
+                {
+                    _output << "Type Error at line " << ln << " in " << __FUNCTION__ << ": "
+                        << "array access requires T_INTEGER but found "<< getString(var->type) <<".\n";
+                    ext = VarInfo( T_ERROR );
+                }
                 else
-                    ext.type = VarInfo( T_REAL );
+                {
+                    _output << "Type Error at line " << ln << " in " << __FUNCTION__ << ": "
+                        << "array access requires T_INTEGER but found an array.\n";
+                    ext = VarInfo( T_ERROR );
+                }
                 return ext;
             }
         }
@@ -1898,13 +2134,13 @@ PascalParser::Fac_2_Ext PascalParser::factor_2()
               || check( LexicalToken( ")", SYMBOL ) )
               || check( LexicalToken( ",", SYMBOL ) )
               || check( LexicalToken( ";", SYMBOL ) )
-              || check( LexicalToken( "then", RESERVED_WORD ) )
-              || check( LexicalToken( "do", RESERVED_WORD ) )
-              || check( LexicalToken( "end", RESERVED_WORD ) )
-              || check( LexicalToken( "else", RESERVED_WORD ) ) )
+              || check( LexicalToken( "then", RESERVED ) )
+              || check( LexicalToken( "do", RESERVED ) )
+              || check( LexicalToken( "end", RESERVED ) )
+              || check( LexicalToken( "else", RESERVED ) ) )
     {
         //_output<<"epsilon\n";
-        ext.type = monostate();
+        ext = monostate();
         return ext;
     }
     else
@@ -1919,10 +2155,10 @@ PascalParser::Fac_2_Ext PascalParser::factor_2()
                 LexicalToken( ")", SYMBOL ) << ", " <<
                 LexicalToken( ",", SYMBOL ) << ", " <<
                 LexicalToken( ";", SYMBOL ) << ", " <<
-                LexicalToken( "then", RESERVED_WORD ) << ", " <<
-                LexicalToken( "do", RESERVED_WORD ) << ", " <<
-                LexicalToken( "end", RESERVED_WORD ) << ", " <<
-                LexicalToken( "else", RESERVED_WORD ) << ", " <<
+                LexicalToken( "then", RESERVED ) << ", " <<
+                LexicalToken( "do", RESERVED ) << ", " <<
+                LexicalToken( "end", RESERVED ) << ", " <<
+                LexicalToken( "else", RESERVED ) << ", " <<
                 "but found " << _tok << "\n";
     }
 
@@ -1935,12 +2171,12 @@ PascalParser::Fac_2_Ext PascalParser::factor_2()
         LexicalToken( ")", SYMBOL ),
         LexicalToken( ",", SYMBOL ),
         LexicalToken( ";", SYMBOL ),
-        LexicalToken( "then", RESERVED_WORD ),
-        LexicalToken( "do", RESERVED_WORD ),
-        LexicalToken( "end", RESERVED_WORD ),
-        LexicalToken( "else", RESERVED_WORD ),
+        LexicalToken( "then", RESERVED ),
+        LexicalToken( "do", RESERVED ),
+        LexicalToken( "end", RESERVED ),
+        LexicalToken( "else", RESERVED ),
     } );
-    ext.type = VarInfo( T_ERROR );
+    ext = VarInfo( T_ERROR );
     return ext;
 }
 
@@ -1948,7 +2184,7 @@ PascalParser::Exp_List_Ext PascalParser::expression_list()
 {
     Exp_List_Ext ext;
     //_output<<"expression_list -> ";
-    //exression expression_list_2
+    //expression expression_list_2
     if ( check( ID )
          || check( INTEGER )
          || check( REAL )
@@ -1958,12 +2194,12 @@ PascalParser::Exp_List_Ext PascalParser::expression_list()
          || check( LexicalToken( "-", ADD_OP ) ) )
     {
         //_output<<"expression expression_list_2\n";
-        Exp_Ext exp = expression();
-        ext.list.push_back( exp.info );
+        const Exp_Ext exp = expression();
+        ext.push_back( exp.info );
         Exp_List_Ext exp_list_2 = expression_list_2();
-        for ( auto& item : exp_list_2.list )
+        for ( auto& item : exp_list_2 )
         {
-            ext.list.push_back( item );
+            ext.push_back( item );
         }
         return ext;
     }
@@ -1983,13 +2219,13 @@ PascalParser::Exp_List_Ext PascalParser::expression_list()
         LexicalToken( ")", SYMBOL ),
         LexicalToken( ",", SYMBOL ),
         LexicalToken( ";", SYMBOL ),
-        LexicalToken( "then", RESERVED_WORD ),
-        LexicalToken( "do", RESERVED_WORD ),
-        LexicalToken( "end", RESERVED_WORD ),
-        LexicalToken( "else", RESERVED_WORD ),
+        LexicalToken( "then", RESERVED ),
+        LexicalToken( "do", RESERVED ),
+        LexicalToken( "end", RESERVED ),
+        LexicalToken( "else", RESERVED ),
     } );
-    ext.list.clear();
-    ext.list.push_back( VarInfo( T_ERROR ) );
+    ext.clear();
+    ext.push_back( VarInfo( T_ERROR ) );
     return ext;
 }
 
@@ -2003,12 +2239,12 @@ PascalParser::Exp_List_Ext PascalParser::expression_list_2()
         //_output<<", expression expression_list_2\n";
         if ( match( LexicalToken( ",", SYMBOL ), __FUNCTION__ ) )
         {
-            Exp_Ext exp = expression();
-            ext.list.push_back( exp.info );
+            const Exp_Ext exp = expression();
+            ext.push_back( exp.info );
             Exp_List_Ext exp_list_2 = expression_list_2();
-            for ( auto& item : exp_list_2.list )
+            for ( auto& item : exp_list_2 )
             {
-                ext.list.push_back( item );
+                ext.push_back( item );
             }
             return ext;
         }
@@ -2016,10 +2252,10 @@ PascalParser::Exp_List_Ext PascalParser::expression_list_2()
     else if ( check( LexicalToken( "]", SYMBOL ) )
               || check( LexicalToken( ")", SYMBOL ) )
               || check( LexicalToken( ";", SYMBOL ) )
-              || check( LexicalToken( "then", RESERVED_WORD ) )
-              || check( LexicalToken( "do", RESERVED_WORD ) )
-              || check( LexicalToken( "end", RESERVED_WORD ) )
-              || check( LexicalToken( "else", RESERVED_WORD ) ) )
+              || check( LexicalToken( "then", RESERVED ) )
+              || check( LexicalToken( "do", RESERVED ) )
+              || check( LexicalToken( "end", RESERVED ) )
+              || check( LexicalToken( "else", RESERVED ) ) )
     {
         //_output<<"epsilon\n";
         return ext;
@@ -2031,10 +2267,10 @@ PascalParser::Exp_List_Ext PascalParser::expression_list_2()
                 LexicalToken( ")", SYMBOL ) << ", " <<
                 LexicalToken( ",", SYMBOL ) << ", " <<
                 LexicalToken( ";", SYMBOL ) << ", " <<
-                LexicalToken( "then", RESERVED_WORD ) << ", " <<
-                LexicalToken( "do", RESERVED_WORD ) << ", " <<
-                LexicalToken( "end", RESERVED_WORD ) << ", " <<
-                LexicalToken( "else", RESERVED_WORD ) << ", " <<
+                LexicalToken( "then", RESERVED ) << ", " <<
+                LexicalToken( "do", RESERVED ) << ", " <<
+                LexicalToken( "end", RESERVED ) << ", " <<
+                LexicalToken( "else", RESERVED ) << ", " <<
                 "but found " << _tok << "\n";
     }
 
@@ -2044,13 +2280,13 @@ PascalParser::Exp_List_Ext PascalParser::expression_list_2()
         LexicalToken( ")", SYMBOL ),
         LexicalToken( ",", SYMBOL ),
         LexicalToken( ";", SYMBOL ),
-        LexicalToken( "then", RESERVED_WORD ),
-        LexicalToken( "do", RESERVED_WORD ),
-        LexicalToken( "end", RESERVED_WORD ),
-        LexicalToken( "else", RESERVED_WORD ),
+        LexicalToken( "then", RESERVED ),
+        LexicalToken( "do", RESERVED ),
+        LexicalToken( "end", RESERVED ),
+        LexicalToken( "else", RESERVED ),
     } );
-    ext.list.clear();
-    ext.list.push_back( VarInfo( T_ERROR ) );
+    ext.clear();
+    ext.push_back( VarInfo( T_ERROR ) );
     return ext;
 }
 

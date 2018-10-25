@@ -1,0 +1,18 @@
+program example(input, output);
+var x:integer; var y: integer; var z: integer;
+var i:real; var j: real; var k: real;
+var ax:array[0 .. 34] of integer; var ai:array[0 .. 2] of integer;
+var ay:array[10 .. 12] of real; var aj:array[1 .. 5] of real;
+var err:error;
+begin
+    z := ax * i;
+    z := gcd2 * i;
+    z := ax and i;
+    z := gcd2 and i;
+	z := i*ax;
+    z := i*gcd2;
+    z := (x>1) and y;
+    z := (x>1) and err;
+    z := (x>1) and err2;
+    z: = y * i
+end.

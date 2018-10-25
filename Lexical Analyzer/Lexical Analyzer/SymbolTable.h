@@ -7,7 +7,7 @@
 
 struct Symbol
 {
-    int idx;
+    int idx{};
     std::string lex;
     E_TYPE type;
 };
@@ -18,13 +18,13 @@ public:
 
     int addOrReturn( const std::string& lex );
 
-    Symbol& operator[]( const unsigned int idx );
+    Symbol& operator[]( unsigned int idx );
 
-    const Symbol& operator[]( const unsigned int idx ) const;
+    const Symbol& operator[]( unsigned int idx ) const;
 
-    Symbol& get( const unsigned int idx );
+    Symbol& get( unsigned int idx );
 
-    const Symbol& get( const unsigned int idx ) const;
+    const Symbol& get( unsigned int idx ) const;
     
 private:
     std::vector<Symbol> _table;

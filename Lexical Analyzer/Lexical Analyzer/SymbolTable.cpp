@@ -1,13 +1,12 @@
 #include "stdafx.h"
 
 #include <algorithm>
-#include <iostream>
 
 #include "SymbolTable.h"
 
 int SymbolTable::addOrReturn( const std::string& lex )
 {
-    if ( _table.size() > 0 )
+    if ( !_table.empty() )
     {
         const auto iter = find_if( _table.begin(), _table.end()
                                    , [&lex]( const Symbol& s )-> bool { return lex == s.lex; } );

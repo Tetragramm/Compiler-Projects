@@ -1,0 +1,31 @@
+program example(input, output);
+var x:integer; var y: integer; var z: integer;
+var i:real; var j: real; var k: real;
+var ax:array[0 .. 34] of integer; var ai:array[0 .. 2] of integer;
+var ay:array[10 .. 12] of real; var aj:array[1 .. 5] of real;
+var err:error;
+function gcd(a:integer; b: integer): integer;
+begin {comment test}
+	x := a;
+	if b = 0 then gcd := a
+	else gcd := gcd(b, a mod b)
+end;
+function gcd2(a:real; b: real): real;
+begin {comment test}
+	if b = 0.0 then gcd2 := a
+	else gcd2 := gcd2(b, a mod b)
+end;
+function arrTest(iarr:array[0 .. 2] of integer; rarr:array[1 .. 5] of real):integer;
+begin
+    arrTest := iarr[0]
+end;
+function arrTest2(iarr:array[0 .. 2] of integer; rarr:array[1 .. 5] of real):real;
+begin
+    arrTest2 := gcd2(rarr[3], rarr[4])
+end;
+
+begin
+    z := -ax;
+    z := - err;
+    z := -(i>3.0)
+end.

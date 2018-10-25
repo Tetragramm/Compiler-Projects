@@ -1,0 +1,51 @@
+program example(input, output);
+blue x:integer; var y: integer; var z: integer;
+var i:real; var j: real; var k: real;
+var ax:array[0 .. 34] of integer; var ai:array[0 .. 2] of integer;
+var ay:array[10 .. 12] of real; var aj:array[1 .. 5] of real;
+function gcd(a:integer; b: integer): integer;
+begin {comment test}
+	x := a;
+	if b = 0 then gcd := a
+	else gcd := gcd(b, a mod b)
+end;
+function gcd2(a:real; b: real): real;
+begin {comment test}
+	if b = 0.0 then gcd2 := a
+	else gcd2 := gcd2(b, a mod b)
+end;
+function arrTest(iarr:array[0 .. 2] of integer; rarr:array[1 .. 5] of real):integer;
+begin
+    arrTest := iarr[0]
+end;
+function arrTest2(iarr:array[0 .. 2] of integer; rarr:array[1 .. 5] of real):real;
+begin
+    arrTest2 := gcd2(rarr[3], rarr[4])
+end;
+
+begin
+	z := gcd(x, y);
+	z := z + 1;
+	z := z - 2;
+	z := -x;
+	z := x + y;
+	z := x * y;
+	z := x / y;
+	z := x div y;
+	z := x mod y;
+	
+	if ((x = y) and (i = j)) then z:=1;
+	
+	k := gcd2(i, j);
+	k := k + 1.1;
+	k := k - 2.2;
+	k := -i;
+	k := i + j;
+	k := i * j;
+	k := i / j;
+	k := i div j;
+	k := i mod j;
+    
+    z := arrTest(ai, aj);
+    k := arrTest2(ai, aj)
+end.

@@ -1,0 +1,12 @@
+#include "stdafx.h"
+#include "Enums.h"
+
+
+DEFINE_ENUM(TOKEN_TYPE,TT_ENUM)
+
+
+DEFINE_ENUM(ATTRIBUTE_TYPE,AT_ENUM)
+
+
+
+DEFINE_ENUM(E_TYPE,ET_ENUM)

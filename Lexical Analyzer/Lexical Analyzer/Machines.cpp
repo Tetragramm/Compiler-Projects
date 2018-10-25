@@ -2,6 +2,7 @@
 
 #include <cctype>
 #include <locale>
+#include <utility>
 
 #include "Machines.h"
 
@@ -15,7 +16,7 @@ protected:
 public:
     TemplateMachine() = default;
 
-    explicit TemplateMachine( const vector< string >& words ) : _words( words ) {}
+    explicit TemplateMachine( vector< string > words ) : _words( std::move( words ) ) {}
 
     TAPair runMachine( const string& line, int& idx ) const override
     {
@@ -49,7 +50,7 @@ public:
 class ReservedWordMachine : public TemplateMachine
 {
 public:
-    ReservedWordMachine() {}
+    ReservedWordMachine() = default;
     explicit ReservedWordMachine(const vector< string >& reserved_words) : TemplateMachine( reserved_words ) {}
 
     TAPair runMachine(const std::string& line, int& idx) const override
@@ -75,7 +76,7 @@ public:
     
     TOKEN_TYPE getTokenType() const override
     {
-        return RESERVED_WORD;
+        return RESERVED;
     }
 };
 
@@ -543,7 +544,7 @@ TAPair PascalMachine::clearSpace()
         //Clear out comments and empty space
         for(const auto& m : _space_machines)
         {
-            TAPair res = m->runMachine( _line, _idx );
+            const TAPair res = m->runMachine( _line, _idx );
             if(res.token == LEXICAL_ERROR)
                 return res;
         }

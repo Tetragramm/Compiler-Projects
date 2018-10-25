@@ -1,0 +1,5 @@
+program example(input, output);
+var ax:array[0 .. 34] of integer;
+begin
+	ax := 1
+end.

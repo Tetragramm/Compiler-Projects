@@ -1,4 +1,5 @@
 #pragma once
+#include <utility>
 #include <vector>
 #include <string>
 #include <memory>
@@ -18,20 +19,7 @@ public:
     TAPair( const TOKEN_TYPE tok): token(tok), attribute( NONE ) {}
     TAPair( const ATTRIBUTE_TYPE error ) : token(LEXICAL_ERROR), attribute( error ) {}
 
-    TAPair( const TAPair& other )
-        : token( other.token )
-        , attribute( other.attribute ) {}
 
-    TAPair( TAPair&& other ) noexcept
-        : token( other.token )
-        , attribute( other.attribute ) {}
-
-    TAPair& operator=( TAPair other )
-    {
-        token = other.token;
-        attribute = other.attribute;
-        return *this;
-    }
 
     TOKEN_TYPE token;
     ATTRIBUTE_TYPE attribute;
@@ -40,6 +28,16 @@ public:
     {
         return token == other.token && attribute == other.attribute;
     }
+
+    TAPair( const TAPair& other ) = default;
+
+    TAPair( TAPair&& other ) noexcept = default;
+
+    TAPair& operator=( const TAPair& other ) = default;
+
+    TAPair& operator=( TAPair&& other ) noexcept = default;
+
+    ~TAPair() = default;
 
     bool operator!=(const TAPair& other) const
     {
@@ -59,18 +57,14 @@ public:
 class LexicalToken
 {
 public:
-    LexicalToken() {}
-    LexicalToken(const std::string& text, const TAPair& token_attribute) : ta(token_attribute), lex(text) {}
-    LexicalToken(const std::string& text, const TOKEN_TYPE& token): ta(token), lex(text) {}
-    LexicalToken(const LexicalToken& lt): ta(lt.ta), lex(lt.lex) {}
-    LexicalToken(LexicalToken&& lt) noexcept: ta(lt.ta), lex(lt.lex) {}
-
-    LexicalToken& operator=( LexicalToken other )
-    {
-        lex = other.lex;
-        ta = other.ta;
-        return *this;
-    }
+    LexicalToken() = default;
+    LexicalToken( std::string text, const TAPair& token_attribute) : ta(token_attribute), lex( std::move( text ) ) {}
+    LexicalToken( std::string text, const TOKEN_TYPE& token): ta(token), lex( std::move( text ) ) {}
+    LexicalToken( const LexicalToken& other ) = default;
+    LexicalToken( LexicalToken&& other ) noexcept = default;
+    LexicalToken& operator=( const LexicalToken& other ) = default;
+    LexicalToken& operator=( LexicalToken&& other ) noexcept = default;
+    ~LexicalToken() = default;
 
     friend bool operator==( const LexicalToken& lhs, const LexicalToken& rhs )
     {
@@ -112,7 +106,10 @@ class PascalMachine : public LanguageMachine
 {
 public:
     PascalMachine( const std::vector< std::string >& reserved_words, std::shared_ptr<SymbolTable>& symbol_table);
-
+    PascalMachine( const PascalMachine& other ) = default;
+    PascalMachine( PascalMachine&& other ) noexcept = default;
+    PascalMachine& operator=( const PascalMachine& other ) = default;
+    PascalMachine& operator=( PascalMachine&& other ) noexcept = default;
     virtual ~PascalMachine() = default;
 
     void setLine(const std::string& line) override;

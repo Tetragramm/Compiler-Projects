@@ -127,10 +127,10 @@ LexicalToken BaseParser::getToken()
             {
                 if(_token_stream)
                 {
-                    *_token_stream<< std::setw(10)<<_line_number<<"  ";
+                    *_token_stream<< std::setw(5)<<_line_number<<"  ";
                     *_token_stream<< std::setw(10)<<tok.lex<<"  ";
-                    *_token_stream<< std::setw(14)<<getString(tok.ta.token)<<"  ";
-                    *_token_stream<< std::setw(10)<<getString(tok.ta.attribute)<<"\n";
+                    *_token_stream<< std::setw(9)<<getString(tok.ta.token)<<"  ";
+                    *_token_stream<< std::setw(6)<<getString(tok.ta.attribute)<<"\n";
                 }
                 return tok;
             }
@@ -211,8 +211,13 @@ void BaseParser::parse()
 void BaseParser::setTokenStream( const std::shared_ptr<std::ostream> stream )
 {
     _token_stream = stream;
-    *_token_stream<< std::setw(10)<<"Line No."<<"  ";
+    *_token_stream<< std::setw(5)<<"Line#"<<"  ";
     *_token_stream<< std::setw(10)<<"Lexeme"<<"  ";
-    *_token_stream<< std::setw(14)<<"TOKEN_TYPE"<<"  ";
-    *_token_stream<< std::setw(10)<<"ATTRIBUTE"<<"\n";
+    *_token_stream<< std::setw(9)<<"TOKEN_TYPE"<<"  ";
+    *_token_stream<< std::setw(6)<<"ATTR"<<"\n";
+}
+
+void BaseParser::setMemoryStream( std::shared_ptr<std::ostream> stream )
+{
+    _memory_stream = stream;
 }

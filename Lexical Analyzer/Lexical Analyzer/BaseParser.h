@@ -18,6 +18,7 @@ public:
     void parse() override;
 
     void setTokenStream(std::shared_ptr<std::ostream> stream) override;
+    void setMemoryStream( std::shared_ptr<std::ostream> stream ) override;
 
 protected:
     std::shared_ptr<SymbolTable> _table;
@@ -27,9 +28,9 @@ protected:
 
     std::shared_ptr<LanguageMachine> _machine;
 
-    bool match(const LexicalToken& m, const std::string& current_func);
-    bool match(const TAPair& m, const std::string& current_func);
-    bool match(const TOKEN_TYPE& m, const std::string& current_func);
+    bool match(const LexicalToken& m, const std::string& current_FUNC);
+    bool match(const TAPair& m, const std::string& current_FUNC);
+    bool match(const TOKEN_TYPE& m, const std::string& current_FUNC);
 
     bool check(const LexicalToken& m) const;
     bool check(const TAPair& m) const;
@@ -45,8 +46,10 @@ protected:
     int getLineNumber() const;
     void getLine(std::string& line);
 
+protected:
     std::ostream& _output;
     std::shared_ptr< std::ostream > _token_stream;
+    std::shared_ptr< std::ostream > _memory_stream;
 
     std::shared_ptr<Scope> _scope;
 
