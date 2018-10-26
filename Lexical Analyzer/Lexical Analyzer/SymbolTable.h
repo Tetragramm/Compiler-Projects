@@ -17,8 +17,8 @@ class SymbolTable
 public:
     SymbolTable()
     {
-        std::cout<<"Constructing ST\n";
     }
+
     int addOrReturn( const std::string& lex );
 
     Symbol& operator[]( const unsigned int idx );
