@@ -2,9 +2,13 @@ program example(input, output);
 var x:integer var y: integer;
 function test:integer;
 begin
-	test:=100
+	:=100
 end;
 
 begin
-	in := -0.5
+	in := -0.5;
+    in := ;
+    in := test(;
+    if then in := 3;
+    in := 3
 end.

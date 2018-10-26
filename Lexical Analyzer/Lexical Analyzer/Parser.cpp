@@ -426,8 +426,9 @@ bool PascalParser::compound_statement_2()
             return true;
         }
     }
-    else if(match(LexicalToken("end", RESERVED_WORD), __FUNCTION__ ))
+    else if( check(LexicalToken("end", RESERVED_WORD)))
     {
+        match(LexicalToken("end", RESERVED_WORD), __FUNCTION__ );
         //_output<<"\\n end\n";
         return true;
     }
