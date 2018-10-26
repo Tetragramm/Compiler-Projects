@@ -480,8 +480,9 @@ void PascalParser::compound_statement_2()
             return;
         }
     }
-    else if ( match( LexicalToken( "end", RESERVED ), __FUNCTION__ ) )
+    else if( check(LexicalToken("end", RESERVED)))
     {
+        match(LexicalToken("end", RESERVED), __FUNCTION__ );
         //_output<<"\\n end\n";
         return;
     }
