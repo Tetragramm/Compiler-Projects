@@ -236,12 +236,6 @@ public:
         const int start_idx = idx;
         int digit_count = 0;
         bool leadingZero = false;
-        bool trailingZero = false;
-        bool longReal = false;
-        bool longFraction = false;
-        bool longExponent = false;
-        bool missingExponent = false;
-        bool zeroExponent = false;
 
         while(idx < line.length() && isdigit(line[idx]))
         {
@@ -258,13 +252,20 @@ public:
         if(!(digit_count > 1 && leadingZero))
             leadingZero = false;
 
+        if(leadingZero)
+        {
+            idx = start_idx;
+            return EMPTY_TOKEN;
+        }
+
         //If it's a real instead of an int
         //And actually is a number...
         if(idx < line.length() && digit_count != 0 && (line[idx] == '.' || line[idx] == 'E'))
         {
             if(digit_count > 5)
-            {    
-                longReal = true;
+            {
+                idx = start_idx;
+                return EMPTY_TOKEN;
             }
 
             if(line[idx] == '.')
@@ -281,14 +282,28 @@ public:
                 //Trailing Zero check
                 if(digit_count > 1 && line[idx-1] == '0')
                 {
-                    trailingZero = true;
+                    idx = start_idx;
+                    return EMPTY_TOKEN;
                 }
             
                 if(digit_count > 5)
-                {    
-                    longFraction = true;
+                {
+                    idx = start_idx;
+                    return EMPTY_TOKEN;
+                }
+
+                if(digit_count == 0)
+                {
+                    idx = start_idx;
+                    return EMPTY_TOKEN;
                 }
             }
+            else
+            {
+                idx = start_idx;
+                return EMPTY_TOKEN;
+            }
+            
 
             if(idx < line.length() && line[idx] == 'E')
             {
@@ -303,37 +318,24 @@ public:
                 {
                     if(digit_count == 0 && line[idx] == '0')
                     {
-                        zeroExponent = true;
+                        idx = start_idx;
+                        return EMPTY_TOKEN;
                     }
                     idx++;
                     digit_count++;
                 }
                 
                 if(digit_count > 2)
-                {    
-                    longExponent = true;
-                }
-                else if(digit_count == 0)
                 {
-                    missingExponent = true;
+                    idx = start_idx;
+                    return EMPTY_TOKEN;
+                }
+                if(digit_count == 0)
+                {
+                    idx = start_idx;
+                    return EMPTY_TOKEN;
                 }
             }
-
-            //Error Handling
-            if(leadingZero)
-                return LEADING_ZERO;
-            if(longReal)
-                return LONG_REAL;
-            if(trailingZero)
-                return TRAILING_ZERO;
-            if(longFraction)
-                return LONG_REAL_FRACTIONAL;
-            if(longExponent)
-                return LONG_EXPONENT;
-            if(missingExponent)
-                return MISSING_EXPONENT;
-            if(zeroExponent)
-                return LEADING_ZERO_EXPONENT;
 
             //No errors
             return TAPair(getTokenType(), NONE);

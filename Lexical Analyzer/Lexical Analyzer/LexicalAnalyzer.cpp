@@ -25,7 +25,7 @@ int main()
     }
     r_words_file.close();
 
-    vector<string> file_names{"TestPascal", "TestErrors"};
+    vector<string> file_names{"TestPascal", "TestErrors", "TestSample"};
 
     for(string& file : file_names)
     {
