@@ -1034,6 +1034,8 @@ void PascalParser::statement()
                     _output << "Type Error at Line " << ln << " in " << __FUNCTION__
                             << ": Type Mismatch between " << getString( var.type ) << " and " << getString( info.type )
                             << "\n";
+                else if(var.type == info.type && var.type != T_ERROR && info.type != T_ERROR)
+                    return;
             }
             else
             {
@@ -1042,9 +1044,9 @@ void PascalParser::statement()
                     _output << "Type Error at Line " << ln << " in " << __FUNCTION__
                             << ": Type Mismatch between " << getString( var.type ) << " and " << getString( info.type )
                             << "\n";
+                else if( var.type == info.type && var.type != T_ERROR && info.type != T_ERROR )
+                    return;
             }
-            
-            return;
         }
     }
     else if ( check( LexicalToken( "begin", RESERVED ) ) )
@@ -1123,6 +1125,8 @@ void PascalParser::statement()
     synch( {
         EOF_TOK,
         LexicalToken( "end", RESERVED ),
+        LexicalToken( ";", SYMBOL),
+        LexicalToken( "else", RESERVED ),
     } );
 }
 
@@ -1157,6 +1161,8 @@ void PascalParser::statement_2()
     synch( {
         EOF_TOK,
         LexicalToken( "end", RESERVED ),
+        LexicalToken( ";", SYMBOL),
+        LexicalToken( "else", RESERVED ),
     } );
 }
 
@@ -1831,6 +1837,16 @@ bool PascalParser::checkParameters( vector< ParInfo >& actual, vector< ParInfo >
 {
     if ( actual.size() != found.size() )
     {
+        if(found.size() == 1)
+        {
+            if( const auto param = get_if<VarInfo>(&found[0]))
+            {
+                if(param->type == T_ERROR)
+                {
+                    return false;
+                }
+            }
+        }
         _output << "Type Error at line " << getLineNumber() << " in " << __FUNCTION__ << ": "
                 << "Incorrect Number of parameters in function call.  Expected "
                 << actual.size() << " but found " << found.size() << ".\n";
@@ -1987,7 +2003,14 @@ PascalParser::Exp_Ext PascalParser::factor()
         unsigned id_idx;
         if ( getIdSymbol( id_idx, __FUNCTION__ ) )
         {
-            return factor_prod_1( id_idx );
+            const Exp_Ext facp1 = factor_prod_1( id_idx );
+            if(auto var = get_if<VarInfo>(&facp1.info))
+            {
+                if(var->type != T_ERROR)
+                    return facp1;
+            }
+            else
+                return facp1;
         }
     }
     else if ( check( INTEGER ) )
@@ -2035,7 +2058,7 @@ PascalParser::Exp_Ext PascalParser::factor()
             {
                 ext.info = fac.info;
             }
-            else
+            else if(v.type != T_ERROR)
             {
                 _output << "Type Error at line " << ln << " in " << __FUNCTION__ << ": "
                         << "REL_OP not requires T_BOOLEAN but found " << getString( v.type ) << ".\n";
@@ -2124,7 +2147,7 @@ PascalParser::Fac_2_Ext PascalParser::factor_2()
                         << "array access requires T_INTEGER but found an array.\n";
                     ext = VarInfo( T_ERROR );
                 }
-                return ext;
+                //DEBUGJH
             }
         }
     }

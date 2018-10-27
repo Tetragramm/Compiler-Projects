@@ -205,13 +205,6 @@ public:
         if(digit_count > 1 && leading_zero)
             return LEADING_ZERO;
 
-        //If it's a real instead...
-        if(idx < line.length() && line[idx] == '.')
-        {
-            idx = start_idx;
-            return EMPTY_TOKEN;
-        }
-
         if(digit_count > 10)
         {
             return LONG_INTEGER;
@@ -237,36 +230,37 @@ public:
     {
         const int start_idx = idx;
         int digit_count = 0;
-        bool leading_zero = false;
-        bool trailing_zero = false;
-        bool long_real = false;
-        bool long_fraction = false;
-        bool long_exponent = false;
-        bool missing_exponent = false;
-        bool zero_exponent = false;
+        bool leadingZero = false;
 
         while(idx < line.length() && isdigit(line[idx]))
         {
             //Leading Zero Check
             if(idx == start_idx && line[idx] == '0')
             {
-                leading_zero = true;
+                leadingZero = true;
             }
 
             idx++;
             digit_count++;
         }
 
-        if(!(digit_count > 1 && leading_zero))
-            leading_zero = false;
+        if(!(digit_count > 1 && leadingZero))
+            leadingZero = false;
+
+        if(leadingZero)
+        {
+            idx = start_idx;
+            return EMPTY_TOKEN;
+        }
 
         //If it's a real instead of an int
         //And actually is a number...
         if(idx < line.length() && digit_count != 0 && (line[idx] == '.' || line[idx] == 'E'))
         {
             if(digit_count > 5)
-            {    
-                long_real = true;
+            {
+                idx = start_idx;
+                return EMPTY_TOKEN;
             }
 
             if(line[idx] == '.')
@@ -283,14 +277,28 @@ public:
                 //Trailing Zero check
                 if(digit_count > 1 && line[idx-1] == '0')
                 {
-                    trailing_zero = true;
+                    idx = start_idx;
+                    return EMPTY_TOKEN;
                 }
             
                 if(digit_count > 5)
-                {    
-                    long_fraction = true;
+                {
+                    idx = start_idx;
+                    return EMPTY_TOKEN;
+                }
+
+                if(digit_count == 0)
+                {
+                    idx = start_idx;
+                    return EMPTY_TOKEN;
                 }
             }
+            else
+            {
+                idx = start_idx;
+                return EMPTY_TOKEN;
+            }
+            
 
             if(idx < line.length() && line[idx] == 'E')
             {
@@ -305,37 +313,24 @@ public:
                 {
                     if(digit_count == 0 && line[idx] == '0')
                     {
-                        zero_exponent = true;
+                        idx = start_idx;
+                        return EMPTY_TOKEN;
                     }
                     idx++;
                     digit_count++;
                 }
                 
                 if(digit_count > 2)
-                {    
-                    long_exponent = true;
-                }
-                else if(digit_count == 0)
                 {
-                    missing_exponent = true;
+                    idx = start_idx;
+                    return EMPTY_TOKEN;
+                }
+                if(digit_count == 0)
+                {
+                    idx = start_idx;
+                    return EMPTY_TOKEN;
                 }
             }
-
-            //Error Handling
-            if(leading_zero)
-                return LEADING_ZERO;
-            if(long_real)
-                return LONG_REAL;
-            if(trailing_zero)
-                return TRAILING_ZERO;
-            if(long_fraction)
-                return LONG_REAL_FRACTIONAL;
-            if(long_exponent)
-                return LONG_EXPONENT;
-            if(missing_exponent)
-                return MISSING_EXPONENT;
-            if(zero_exponent)
-                return LEADING_ZERO_EXPONENT;
 
             //No errors
             return TAPair(getTokenType(), NONE);

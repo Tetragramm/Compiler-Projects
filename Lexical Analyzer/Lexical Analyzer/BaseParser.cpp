@@ -148,6 +148,13 @@ LexicalToken BaseParser::getToken()
             eof = true;
         }
     }
+    if(_token_stream)
+    {
+        *_token_stream<< std::setw(5)<<_line_number<<"  ";
+        *_token_stream<< std::setw(10)<<"$EOF"<<"  ";
+        *_token_stream<< std::setw(9)<<getString(END_OF_FILE)<<"  ";
+        *_token_stream<< std::setw(6)<<getString(NONE)<<"\n";
+    }
     return LexicalToken("", TAPair(END_OF_FILE, NONE));
 }
 
