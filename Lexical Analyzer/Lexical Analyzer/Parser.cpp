@@ -322,6 +322,12 @@ void PascalParser::declarations()
              && getIdSymbol( id, __FUNCTION__ )
              && match( LexicalToken( ":", SYMBOL ), __FUNCTION__ ) )
         {
+            bool reDeclare = false;
+            if(_scope->checkVariable(id))
+            {
+                reDeclare = true;
+                _output << "Re-declaring variable "<<_table->get( id).lex<< " at line "<< ln << " in " <<__FUNCTION__<<"\n";
+            }
             Type_Ext type_ext = type();
             if ( match( LexicalToken( ";", SYMBOL ), __FUNCTION__ ) )
             {
@@ -331,10 +337,9 @@ void PascalParser::declarations()
                         type_ext.info = VarInfo(T_ERROR);
                 }
 
-                if(!_scope->addVariable( id, type_ext.info ))
-                {
-                    _output << "Re-declaring variable "<<_table->get( id).lex<< " at line "<< ln << " in " <<__FUNCTION__<<"\n";
-                }
+                if(!reDeclare)
+                    _scope->addVariable( id, type_ext.info );
+
                 declarations_2();
                 //var id : info ; declarations_2
                 return;
@@ -607,14 +612,18 @@ void PascalParser::subprogram_declaration()
         auto ln = getLineNumber();
         _scope = _scope->newScope( "Temp Scope" );
         const Sub_Head_Ext head = subprogram_head();
-        _scope->setName(_table->get( head.id ).lex + " Scope");
-        subprogram_declaration_2();
-        if(!_scope->getParent()->addVariable( head.id, head.info ))
+
+        const bool reDeclare = _scope->getParent()->checkVariable( head.id);
+        if(reDeclare)
         {
             _output << "Re-declaring function "<<_table->get( head.id ).lex<< " at line "<< ln << " in " <<__FUNCTION__<<"\n";
         }
-        else
+
+        _scope->setName(_table->get( head.id ).lex + " Scope");
+        subprogram_declaration_2();
+        if(!reDeclare)
         {
+            _scope->getParent()->addVariable( head.id, head.info );
             _scope->print( *_memory_stream, *_table );
         }
         _scope = _scope->getParent();

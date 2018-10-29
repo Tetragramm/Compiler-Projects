@@ -10,7 +10,7 @@ class BaseParser : public Parser
 {
 public:
     explicit BaseParser( std::ifstream& file, std::ostream& output) :
-    _output( output ), _file(file), _line_number(0)
+    _output( output ), _file(file), _line_number(0), _tok("#", NOT_FOUND)
     {
         _table = std::make_shared<SymbolTable>();
     }
@@ -32,15 +32,17 @@ protected:
     bool match(const TAPair& m, const std::string& current_FUNC);
     bool match(const TOKEN_TYPE& m, const std::string& current_FUNC);
 
-    bool check(const LexicalToken& m) const;
-    bool check(const TAPair& m) const;
-    bool check(const TOKEN_TYPE& m) const;
+    bool check(const LexicalToken& m);
+    bool check(const TAPair& m);
+    bool check(const TOKEN_TYPE& m);
 
     bool getNum(int& value, const std::string& current_FUNC);
     bool getNum(double& value, const std::string& current_FUNC);
     bool getIdSymbol(unsigned& symbol, const std::string& current_FUNC);
 
     void endParsing() const;
+    void fillEmptyToken();
+    void setEmptyToken();
     void synch(const std::vector<LexicalToken>& tokens);
 
     int getLineNumber() const;

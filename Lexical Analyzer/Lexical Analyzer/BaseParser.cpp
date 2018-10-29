@@ -2,75 +2,83 @@
 #include "BaseParser.h"
 #include <iomanip>
 
+
+
 bool BaseParser::match( const LexicalToken& m, const std::string& current_FUNC )
 {
+    fillEmptyToken();
     if(check(m))
     {
         if(_tok.ta.token == END_OF_FILE)
             endParsing();
         else
         {
-            _tok = getToken();
+            setEmptyToken();
         }
         return true;
     }
     
     _output<<"Syntax Error at line "<<getLineNumber()<<" in "<<current_FUNC<<": Expected "<<m<<",";
     _output<<" but Found "<<_tok<<"\n";
-    _tok = getToken();
+    setEmptyToken();
     return false;
 }
 
 bool BaseParser::match( const TAPair& m, const std::string& current_FUNC )
 {
+    fillEmptyToken();
     if(check(m))
     {
         if(_tok.ta.token == END_OF_FILE)
             endParsing();
         else
         {
-            _tok = getToken();
+            setEmptyToken();
         }
         return true;
     }
     
     _output<<"Syntax Error at line "<<getLineNumber()<<" in "<<current_FUNC<<": Expected "<<m<<",";
     _output<<" but Found "<<_tok.ta<<"\n";
-    _tok = getToken();
+    setEmptyToken();
     return false;
 }
 
 bool BaseParser::match( const TOKEN_TYPE& m, const std::string& current_FUNC )
 {
+    fillEmptyToken();
     if(check(m))
     {
         if(_tok.ta.token == END_OF_FILE)
             endParsing();
         else
         {
-            _tok = getToken();
+            setEmptyToken();
         }
         return true;
     }
     
     _output<<"Syntax Error at line "<<getLineNumber()<<" in "<<current_FUNC<<": Expected "<<m<<",";
     _output<<" but Found ("<<_tok.ta.token<<")\n";
-    _tok = getToken();
+    setEmptyToken();
     return false;
 }
 
-bool BaseParser::check( const LexicalToken& m ) const
+bool BaseParser::check( const LexicalToken& m )
 {
+    fillEmptyToken();
     return (m == _tok);
 }
 
-bool BaseParser::check( const TAPair& m ) const
+bool BaseParser::check( const TAPair& m )
 {
+    fillEmptyToken();
     return (m == _tok.ta);
 }
 
-bool BaseParser::check( const TOKEN_TYPE& m ) const
+bool BaseParser::check( const TOKEN_TYPE& m )
 {
+    fillEmptyToken();
     return (m == _tok.ta.token);
 }
 
@@ -107,6 +115,18 @@ void BaseParser::endParsing() const
     _output.flush();
 }
 
+void BaseParser::fillEmptyToken()
+{
+    if(_tok.lex == "#")
+    {
+        _tok = getToken();
+    }
+}
+
+void BaseParser::setEmptyToken()
+{
+    _tok.lex = "#";
+}
 
 LexicalToken BaseParser::getToken()
 {
@@ -148,6 +168,7 @@ LexicalToken BaseParser::getToken()
             eof = true;
         }
     }
+
     if(_token_stream)
     {
         *_token_stream<< std::setw(5)<<_line_number<<"  ";

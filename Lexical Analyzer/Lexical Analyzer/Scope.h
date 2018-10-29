@@ -81,6 +81,7 @@ public:
     bool addVariable(const unsigned& tok, const Info& type);
     bool addVariable(const unsigned& tok, const ParInfo& type);
     Info getVariable(const unsigned& tok);
+    bool checkVariable(const unsigned& tok) const;
     std::shared_ptr<Scope> newScope(const std::string& name);
     std::shared_ptr<Scope> getParent() const;
 

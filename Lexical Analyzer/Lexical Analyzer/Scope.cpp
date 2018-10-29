@@ -114,6 +114,11 @@ void Scope::print( std::ostream& os, const SymbolTable& table )
     os <<"\n\n";
 }
 
+bool Scope::checkVariable(const unsigned& tok) const
+{
+    return _map.count(tok) > 0;
+}
+
 void Scope::setName(const std::string name)
 {
     _name = name;
